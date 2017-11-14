@@ -24,16 +24,6 @@ const SignInContent = ({
           {auth.error.translation_key ? t(`error.${auth.error.translation_key}`) : auth.error.toString()}
         </Alert>}
       <div>
-        <div className={`${styles.socialConnections} social-connections`}>
-          <Button cStyle="facebook" onClick={fetchSignInFacebook} full>
-            {t('sign_in.facebook_sign_in')}
-          </Button>
-        </div>
-        <div className={styles.separator}>
-          <h1>
-            {t('sign_in.or')}
-          </h1>
-        </div>
         <form onSubmit={handleSignIn}>
           <TextField
             id="email"
