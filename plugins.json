@@ -1,12 +1,12 @@
 {
   "server": [
-    "talk-plugin-auth",
+    "talk-plugin-auth-sa",
     "talk-plugin-featured-comments",
     "talk-plugin-offtopic",
     "talk-plugin-respect"
   ],
   "client": [
-    "talk-plugin-auth",
+    "talk-plugin-auth-sa",
     "talk-plugin-author-menu",
     "talk-plugin-comment-content",
     "talk-plugin-featured-comments",
