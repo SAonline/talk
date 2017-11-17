@@ -50,6 +50,7 @@ plugins/*
 !plugins/talk-plugin-subscriber
 !plugins/talk-plugin-flag-details
 !plugins/talk-plugin-slack-notifications
+!plugins/talk-plugin-auth-sa
 
 **/node_modules/*
 
