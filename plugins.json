@@ -3,10 +3,9 @@
     "talk-plugin-auth-sa",
     "talk-plugin-featured-comments",
     "talk-plugin-offtopic",
-    "talk-plugin-respect"
+    "talk-plugin-respect",
   ],
   "client": [
-    "talk-plugin-auth-sa",
     "talk-plugin-author-menu",
     "talk-plugin-comment-content",
     "talk-plugin-featured-comments",
@@ -21,6 +20,6 @@
     "talk-plugin-sort-most-respected",
     "talk-plugin-sort-newest",
     "talk-plugin-sort-oldest",
-    "talk-plugin-viewing-options"
+    "talk-plugin-viewing-options",
   ]
 }
