@@ -4,6 +4,7 @@
     "talk-plugin-featured-comments",
     "talk-plugin-offtopic",
     "talk-plugin-respect",
+    "talk-plugin-toxic-comments"
   ],
   "client": [
     "talk-plugin-author-menu",
@@ -21,5 +22,6 @@
     "talk-plugin-sort-newest",
     "talk-plugin-sort-oldest",
     "talk-plugin-viewing-options",
+    "talk-plugin-toxic-comments"
   ]
 }
