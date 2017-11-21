@@ -10,6 +10,9 @@ module.exports = { tokenUserNotFound: async ({jwt, token}) => {
 		return null;
 	}
 
+	profile.username = profile.username.replace(' ', '_');
+	profile.username = profile.username.replace(/\W/g, '');
+
 	let user = await UserModel.findOneAndUpdate({
 		id: profile.sub
 	}, {
