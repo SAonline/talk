@@ -59,3 +59,5 @@ plugins/talk-plugin-auth/.DS_Store
 plugins/talk-plugin-comment-content/.DS_Store
 
 plugins/talk-plugin-auth-sa/.DS_Store
+
+plugins/talk-plugin-auth/client/.DS_Store
