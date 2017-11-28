@@ -95,7 +95,8 @@ const mailer = module.exports = {
     }
 
     // Prefix the subject with `[Talk]`.
-    subject = `[Talk] ${subject}`;
+    // Updated Prefix fo subject to organizationName
+    subject = `[Honolulu Star-Advertiser] ${subject}`;
 
     applyLocals(locals);
 
