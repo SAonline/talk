@@ -33,7 +33,7 @@ templates.render = (name, format = 'txt', context) => new Promise((resolve, reje
     }
   }
 
-  const filename = path.join(__dirname, 'email', [name, format, 'ejs'].join('.'));
+  const filename = path.join(__dirname, 'custom_email', [name, format, 'ejs'].join('.'));
 
   fs.readFile(filename, (err, file) => {
     if (err) {
