@@ -11,8 +11,7 @@ const getPopupMenu = [
     return {
       header: t('step_1_header'),
       options: [
-        {val: 'COMMENTS', text: t('flag_comment')},
-        {val: 'USERS', text: t('flag_username')}
+        {val: 'COMMENTS', text: t('flag_comment')}
       ],
       button: t('continue'),
       sets: 'itemType'
