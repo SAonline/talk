@@ -53,21 +53,23 @@ module.exports = { tokenUserNotFound: async ({jwt, token}) => {
 
 	} else {
 
+		var dbUserUpdated = null;
+
 		if( ( profile.subid && dbUser.id != profile.subid ) )
 		{
-			let dbUser = await UserModel.findOneAndUpdate({
+			dbUserUpdated = await UserModel.findOneAndUpdate({
 				'profiles': { $elemMatch: { 'id': profile.email } }
 			}, {
 				id: profile.subid
 			}, {
 				upsert: false,
-				returnNewDocument: true
+				new: true
 			});
 		} 
 
 		if ( profile.email && dbUser.profiles[0].id != profile.email ) 
 		{
-			let dbUser = await UserModel.findOneAndUpdate({
+			dbUserUpdated = await UserModel.findOneAndUpdate({
 				'id': profile.subid 
 			}, {
 				profiles: [
@@ -81,24 +83,33 @@ module.exports = { tokenUserNotFound: async ({jwt, token}) => {
 				]
 			}, {
 				upsert: false,
-				returnNewDocument: true
+				new: true
 			});
+			console.log("dbUserUpdated: AFTER" + dbUserUpdated );
 		}
 
 		if( profile.username && dbUser.username != profile.username )
 		{
-			let dbUser = await UserModel.findOneAndUpdate({
+			dbUserUpdated = await UserModel.findOneAndUpdate({
 				'profiles': { $elemMatch: { 'id': profile.email } }
 			}, {
 				username: profile.username,
 				lowercaseUsername: profile.username.toLowerCase()
 			}, {
 				upsert: false,
-				returnNewDocument: true
+				new: true
 			});
 		} 
+		
+		if( dbUserUpdated )
+		{
 			
-		return dbUser;
+			console.log("dbUserUpdated: TRUE" + dbUserUpdated );
+
+			return dbUserUpdated;
+		} else {
+			return dbUser;
+		}		
 	}
 
 
