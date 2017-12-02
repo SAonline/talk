@@ -85,7 +85,6 @@ module.exports = { tokenUserNotFound: async ({jwt, token}) => {
 				upsert: false,
 				new: true
 			});
-			console.log("dbUserUpdated: AFTER" + dbUserUpdated );
 		}
 
 		if( profile.username && dbUser.username != profile.username )
@@ -103,9 +102,6 @@ module.exports = { tokenUserNotFound: async ({jwt, token}) => {
 		
 		if( dbUserUpdated )
 		{
-			
-			console.log("dbUserUpdated: TRUE" + dbUserUpdated );
-
 			return dbUserUpdated;
 		} else {
 			return dbUser;
