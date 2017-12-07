@@ -4,14 +4,11 @@ module.exports = { tokenUserNotFound: async ({jwt, token}) => {
 
     let profile = jwt;
 	
-	if (!profile) {
-		return null;
-	}
-
-	if( !profile.username)
+	if( !profile || !profile.username || !profile.email )
 	{
 		return null;
 	}
+	
 	profile.username = profile.username.replace(' ', '_');
 	profile.username = profile.username.replace(/\W/g, '');
 
