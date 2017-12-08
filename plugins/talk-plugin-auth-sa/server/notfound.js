@@ -14,8 +14,8 @@ module.exports = { tokenUserNotFound: async ({jwt, token}) => {
 
 	let dbUser = await UserModel.findOne({
 		$or: [
-			{ 'profiles': { $elemMatch: { 'id': profile.email } } },
-			{ 'id': profile.subid }
+			{ 'id': profile.subid },
+			{ 'profiles': { $elemMatch: { 'id': profile.email } } }
 		]
 	});
 
