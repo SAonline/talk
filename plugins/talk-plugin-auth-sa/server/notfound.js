@@ -4,7 +4,7 @@ module.exports = { tokenUserNotFound: async ({jwt, token}) => {
 
     let profile = jwt;
 	
-	if( !profile || !profile.username || !profile.email )
+	if( !profile || !profile.username || !profile.email || !profile.subid )
 	{
 		return null;
 	}
