@@ -13,6 +13,7 @@ client/coral-framework/graphql/introspection.json
 .idea/
 *.swp
 *.DS_STORE
+.prettierrc.json
 
 coverage/
 test/e2e/reports/
@@ -53,15 +54,4 @@ plugins/*
 !plugins/talk-plugin-auth-sa
 
 **/node_modules/*
-
-plugins/talk-plugin-auth/.DS_Store
-
-plugins/talk-plugin-comment-content/.DS_Store
-
-plugins/talk-plugin-auth-sa/.DS_Store
-
-plugins/talk-plugin-auth/client/.DS_Store
-
-plugins/talk-plugin-slack-notifications/.DS_Store
-
-plugins/talk-plugin-facebook-auth/.DS_Store
+yarn-error.log

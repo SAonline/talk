@@ -1,4 +1,4 @@
-import React, {Component} from 'react';
+import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import styles from './CommentDetails.css';
 import t from 'coral-framework/services/i18n';
@@ -7,25 +7,26 @@ import IfSlotIsNotEmpty from 'coral-framework/components/IfSlotIsNotEmpty';
 
 class CommentDetails extends Component {
   state = {
-    showDetail: false
+    showDetail: false,
   };
 
-  constructor () {
+  constructor() {
     super();
     this.state = {
-      showDetail: false
+      showDetail: false,
     };
   }
 
   toggleDetail = () => {
-    this.setState((state) => ({
-      showDetail: !state.showDetail
+    this.setState(state => ({
+      showDetail: !state.showDetail,
     }));
-  }
+    this.props.clearHeightCache && this.props.clearHeightCache();
+  };
 
   render() {
-    const {data, root, comment} = this.props;
-    const {showDetail} = this.state;
+    const { data, root, comment, clearHeightCache } = this.props;
+    const { showDetail } = this.state;
     const queryData = {
       root,
       comment,
@@ -44,14 +45,18 @@ class CommentDetails extends Component {
         <Slot
           fill="adminCommentDetailArea"
           data={data}
+          clearHeightCache={clearHeightCache}
           queryData={queryData}
           more={showDetail}
         />
-        {showDetail && <Slot
-          fill="adminCommentMoreDetails"
-          data={data}
-          queryData={queryData}
-        />}
+        {showDetail && (
+          <Slot
+            fill="adminCommentMoreDetails"
+            data={data}
+            clearHeightCache={clearHeightCache}
+            queryData={queryData}
+          />
+        )}
       </div>
     );
   }
@@ -61,6 +66,7 @@ CommentDetails.propTypes = {
   data: PropTypes.object.isRequired,
   root: PropTypes.object.isRequired,
   comment: PropTypes.object.isRequired,
+  clearHeightCache: PropTypes.func,
 };
 
 export default CommentDetails;

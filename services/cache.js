@@ -1,7 +1,7 @@
 const redis = require('./redis');
 const debug = require('debug')('talk:services:cache');
 
-const cache = module.exports = {};
+const cache = (module.exports = {});
 
 /**
  * This collects a key that may either be an array or a string and creates a
@@ -9,7 +9,7 @@ const cache = module.exports = {};
  * @param  {Mixed} key Either an array of items composing a key or a string
  * @return {String}    A string that represents a key
  */
-const keyfunc = (key) => {
+const keyfunc = key => {
   if (Array.isArray(key)) {
     return `cache[${key.join(':')}]`;
   }
@@ -21,7 +21,7 @@ const keyfunc = (key) => {
  * This wraps a complicated function with a cache, in the event that the item is
  * not inside the cache, it will perform the work to get it and then set it
  * followed by returning the value.
- * @param  {Mixed} key       Either an array of items or string represening this
+ * @param  {Mixed} key       Either an array of items or string representing this
  *                           work
  * @param  {Integer} expiry  Time in seconds for the cache entry to live for
  * @param  {Function} work   A function that returns a promise that can be
@@ -30,7 +30,7 @@ const keyfunc = (key) => {
  */
 cache.wrap = async (key, expiry, work, kf = keyfunc) => {
   let value = await cache.get(key, kf);
-  if (value !== null) {
+  if (typeof value !== 'undefined' && value !== null) {
     debug('wrap: hit', kf(key));
     return value;
   }
@@ -55,36 +55,41 @@ cache.wrap = async (key, expiry, work, kf = keyfunc) => {
  * Init sets up the scripts used in Redis with the incr/decr commands.
  */
 cache.init = async () => {
-
   // Create the redis instance.
   cache.client = redis.createClient();
 
   // This is designed to increment a key and add an expiry iff the key already
   // exists.
-  const INCR_SCRIPT = `
-  if redis.call('GET', KEYS[1]) ~= false then
-    redis.call('INCR', KEYS[1])
-    redis.call('EXPIRE', KEYS[1], ARGV[1])
-  end
-  `;
-
   cache.client.defineCommand('increx', {
     numberOfKeys: 1,
-    lua: INCR_SCRIPT,
+    lua: `
+    if redis.call('GET', KEYS[1]) ~= false then
+      redis.call('INCR', KEYS[1])
+      redis.call('EXPIRE', KEYS[1], ARGV[1])
+    end
+    `,
   });
 
   // This is designed to decrement a key and add an expiry iff the key already
   // exists.
-  const DECR_SCRIPT = `
-  if redis.call('GET', KEYS[1]) ~= false then
-    redis.call('DECR', KEYS[1])
-    redis.call('EXPIRE', KEYS[1], ARGV[1])
-  end
-  `;
-
   cache.client.defineCommand('decrex', {
     numberOfKeys: 1,
-    lua: DECR_SCRIPT,
+    lua: `
+    if redis.call('GET', KEYS[1]) ~= false then
+      redis.call('DECR', KEYS[1])
+      redis.call('EXPIRE', KEYS[1], ARGV[1])
+    end
+    `,
+  });
+
+  cache.client.defineCommand('hincrbyex', {
+    numberOfKeys: 2,
+    lua: `
+    if redis.call('HGET', KEYS[1], KEYS[2]) ~= false then
+      redis.call('HINCRBY', KEYS[1], KEYS[2], ARGV[1])
+      redis.call('EXPIRE', KEYS[1], ARGV[2])
+    end
+    `,
   });
 };
 
@@ -92,13 +97,15 @@ cache.init = async () => {
  * This will increment a key in redis and update the expiry iff it already
  * exists, otherwise it will do nothing.
  */
-cache.incr = async (key, expiry, kf = keyfunc) => cache.client.increx(kf(key), expiry);
+cache.incr = async (key, expiry, kf = keyfunc) =>
+  cache.client.increx(kf(key), expiry);
 
 /**
  * This will decrement a key in redis and update the expiry iff it already
  * exists, otherwise it will do nothing.
  */
-cache.decr = async (key, expiry, kf = keyfunc) => cache.client.decrex(kf(key, expiry));
+cache.decr = async (key, expiry, kf = keyfunc) =>
+  cache.client.decrex(kf(key, expiry));
 
 /**
  * This will increment many keys in redis and update the expiry iff it already
@@ -108,7 +115,6 @@ cache.incrMany = async (keys, expiry, kf = keyfunc) => {
   let multi = cache.client.multi();
 
   for (const key of keys) {
-
     // Queue up the evalsha command.
     multi.increx(kf(key), expiry);
   }
@@ -124,7 +130,6 @@ cache.decrMany = async (keys, expiry, kf = keyfunc) => {
   let multi = cache.client.multi();
 
   for (const key of keys) {
-
     // Queue up the evalsha command.
     multi.decrex(kf(key), expiry);
   }
@@ -148,10 +153,10 @@ cache.wrapMany = async (keys, expiry, work, kf = keyfunc) => {
 
   // find any of the null valued items by collecting the work
   let workRefs = values
-    .map((value, index) => ({value, index, key: keys[index]}))
-    .filter(({value}) => value === null);
+    .map((value, index) => ({ value, index, key: keys[index] }))
+    .filter(({ value }) => value === null);
 
-  let workKeys = workRefs.map(({key}) => key);
+  let workKeys = workRefs.map(({ key }) => key);
 
   debug(`wrapMany: hit ratio: ${keys.length - workKeys.length}/${keys.length}`);
 
@@ -166,7 +171,7 @@ cache.wrapMany = async (keys, expiry, work, kf = keyfunc) => {
         .then(() => {
           debug('wrapMany: setMany complete');
         })
-        .catch((err) => {
+        .catch(err => {
           console.error(err);
         });
     });
@@ -186,13 +191,15 @@ cache.wrapMany = async (keys, expiry, work, kf = keyfunc) => {
  * @param  {Mixed} key Either an array of items composing a key or a string
  * @return {Promise}
  */
-cache.get = async (key, kf = keyfunc) => cache.client.get(kf(key)).then((reply) => {
-  if (reply !== null) {
+cache.get = async (key, kf = keyfunc) =>
+  cache.client.get(kf(key)).then(reply => {
+    if (typeof reply !== 'undefined' && reply !== null) {
+      // Parse the stored cache value from JSON.
+      return JSON.parse(reply);
+    }
 
-    // Parse the stored cache value from JSON.
-    return JSON.parse(reply);
-  }
-});
+    return null;
+  });
 
 /**
  * Returns many replies.
@@ -201,23 +208,22 @@ cache.get = async (key, kf = keyfunc) => cache.client.get(kf(key)).then((reply) 
  * @param  {Function}      [kf=keyfunc] optional key function to use to turn the
  *                                      provided key into a string for the cache.
  */
-cache.getMany = async (keys, kf = keyfunc) => cache.client.mget(keys.map(kf)).then((replies) => {
+cache.getMany = async (keys, kf = keyfunc) =>
+  cache.client.mget(keys.map(kf)).then(replies => {
+    // Parse the replies.
+    for (let i = 0; i < replies.length; i++) {
+      let value = null;
 
-  // Parse the replies.
-  for (let i = 0; i < replies.length; i++) {
-    let value = null;
+      if (typeof replies[i] !== 'undefined' && replies[i] !== null) {
+        // Parse the stored cache value from JSON.
+        value = JSON.parse(replies[i]);
+      }
 
-    if (replies[i] != null) {
-
-      // Parse the stored cache value from JSON.
-      value = JSON.parse(replies[i]);
+      replies[i] = value;
     }
 
-    replies[i] = value;
-  }
-
-  return replies;
-});
+    return replies;
+  });
 
 /**
  * Sets many entries in the cache.
@@ -230,7 +236,6 @@ cache.setMany = async (keys, values, expiry, kf = keyfunc) => {
   let multi = cache.client.multi();
 
   keys.forEach((key, index) => {
-
     // Serialize the value as JSON.
     let reply = JSON.stringify(values[index]);
 
@@ -247,7 +252,6 @@ cache.setMany = async (keys, values, expiry, kf = keyfunc) => {
  * @return {Promise}
  */
 cache.invalidate = async (key, kf = keyfunc) => {
-
   debug(`invalidate: ${kf(key)}`);
 
   return cache.client.del(kf(key));
@@ -262,9 +266,74 @@ cache.invalidate = async (key, kf = keyfunc) => {
  * @return {Promise}
  */
 cache.set = async (key, value, expiry, kf = keyfunc) => {
-
   // Serialize the value as JSON.
   let reply = JSON.stringify(value);
 
   return cache.client.set(kf(key), reply, 'EX', expiry);
 };
+
+/**
+ * h is the hash form of the cache.
+ */
+cache.h = {};
+
+cache.h.get = async (key, field = '__default__') => {
+  // Get the current value from redis.
+  const reply = await cache.client.hget(keyfunc(key), field);
+
+  if (typeof reply !== 'undefined' && reply !== null) {
+    return JSON.parse(reply);
+  }
+
+  return null;
+};
+
+cache.h.set = async (key, field = '__default__', value, expiry = 60) => {
+  // Serialize the value as JSON.
+  let reply = JSON.stringify(value);
+
+  return cache.client
+    .pipeline()
+    .hset(keyfunc(key), field, reply)
+    .expire(keyfunc(key), expiry)
+    .exec();
+};
+
+cache.h.invalidate = async (key, field = null) => {
+  if (field === null) {
+    return cache.invalidate(key);
+  }
+
+  debug(`invalidate: ${keyfunc(key)} ${field}`);
+
+  return cache.client.hdel(keyfunc(key), field);
+};
+
+cache.h.wrap = async (key, field, expiry, work) => {
+  let value = await cache.h.get(key, field);
+  if (value !== null) {
+    debug('wrap: hit', keyfunc(key));
+    return value;
+  }
+
+  debug('wrap: miss', keyfunc(key));
+
+  value = await work();
+
+  process.nextTick(async () => {
+    try {
+      await cache.h.set(key, field, value, expiry);
+      debug('wrap: set complete');
+    } catch (err) {
+      console.error(err);
+    }
+  });
+
+  return value;
+};
+
+cache.h.incr = async (key, field = '__default__', expiry) =>
+  cache.client.hincrbyex(keyfunc(key), field, 1, expiry);
+
+cache.h.decr = async (key, field = '__default__', expiry) =>
+  cache.client.hincrbyex(keyfunc(key), field, -1, expiry);

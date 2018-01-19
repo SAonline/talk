@@ -1,3 +1,6 @@
+const debug = require('debug')('talk:graph:connectors');
+const merge = require('lodash/merge');
+
 // Errors.
 const errors = require('../errors');
 
@@ -5,7 +8,6 @@ const errors = require('../errors');
 const Action = require('../models/action');
 const Asset = require('../models/asset');
 const Comment = require('../models/comment');
-const Setting = require('../models/setting');
 const User = require('../models/user');
 
 // Services.
@@ -13,13 +15,12 @@ const Actions = require('../services/actions');
 const Assets = require('../services/assets');
 const Cache = require('../services/cache');
 const Comments = require('../services/comments');
-const DomainList = require('../services/domainlist');
+const DomainList = require('../services/domain_list');
 const I18n = require('../services/i18n');
 const Jwt = require('../services/jwt');
 const Karma = require('../services/karma');
 const Kue = require('../services/kue');
 const Limit = require('../services/limit');
-const Locals = require('../services/locals');
 const Mailer = require('../services/mailer');
 const Metadata = require('../services/metadata');
 const Migration = require('../services/migration');
@@ -45,7 +46,6 @@ const connectors = {
     Action,
     Asset,
     Comment,
-    Setting,
     User,
   },
   services: {
@@ -59,7 +59,6 @@ const connectors = {
     Karma,
     Kue,
     Limit,
-    Locals,
     Mailer,
     Metadata,
     Migration,
@@ -80,4 +79,12 @@ const connectors = {
   },
 };
 
-module.exports = connectors;
+module.exports = Plugins.get('server', 'connectors').reduce(
+  (defaultConnectors, { plugin, connectors: pluginConnectors }) => {
+    debug(`adding plugin '${plugin.name}'`);
+
+    // Merge in the plugin connectors.
+    return merge(defaultConnectors, pluginConnectors);
+  },
+  connectors
+);

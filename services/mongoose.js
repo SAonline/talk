@@ -1,12 +1,9 @@
+const { MONGO_URL, WEBPACK, CREATE_MONGO_INDEXES } = require('../config');
+
 const mongoose = require('mongoose');
 const debug = require('debug')('talk:db');
 const enabled = require('debug').enabled;
 const queryDebugger = require('debug')('talk:db:query');
-
-const {
-  MONGO_URL,
-  WEBPACK
-} = require('../config');
 
 // Loading the formatter from Mongoose:
 //
@@ -35,32 +32,31 @@ mongoose.Promise = global.Promise;
 
 // Check if debugging is enabled on the talk:db prefix.
 if (enabled('talk:db:query')) {
-
   // Enable the mongoose debugger, here we wrap the similar print function
   // provided by setting the debug parameter.
   mongoose.set('debug', debugQuery);
 }
 
 if (WEBPACK) {
-
   debug('Not connecting to mongodb during webpack build');
 
   // @wyattjoh: We didn't call connect, but because we include mongoose, it will hold the socket ready,
   // preventing node from exiting. Calling disconnect here just ensures that the application
   // can quit correctly.
   mongoose.disconnect();
-
 } else {
-
   // Connect to the Mongo instance.
   mongoose
     .connect(MONGO_URL, {
       useMongoClient: true,
+      config: {
+        autoIndex: CREATE_MONGO_INDEXES,
+      },
     })
     .then(() => {
       debug('connection established');
     })
-    .catch((err) => {
+    .catch(err => {
       console.error(err);
       process.exit(1);
     });
@@ -69,7 +65,7 @@ if (WEBPACK) {
 module.exports = mongoose;
 
 // Here we include all the models that mongoose is used for, this ensures that
-// when we import mongoose that we also start up all the indexing opreations
+// when we import mongoose that we also start up all the indexing operations
 // here.
 require('../models/action');
 require('../models/asset');

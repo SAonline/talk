@@ -1,8 +1,7 @@
-import React, {Children} from 'react';
-import {connect} from 'react-redux';
+import React, { Children } from 'react';
+import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
-import omit from 'lodash/omit';
-import {getShallowChanges} from 'coral-framework/utils';
+import { getShallowChanges } from 'coral-framework/utils';
 
 class IfSlotIsEmpty extends React.Component {
   static contextTypes = {
@@ -10,7 +9,6 @@ class IfSlotIsEmpty extends React.Component {
   };
 
   shouldComponentUpdate(next) {
-
     // Prevent Slot from rerendering when only reduxState has changed and
     // it does not result in a change.
     const changes = getShallowChanges(this.props, next);
@@ -23,13 +21,23 @@ class IfSlotIsEmpty extends React.Component {
   }
 
   isSlotEmpty(props = this.props) {
-    const {slot, className: _a, reduxState, component: _b = 'div', children: _c, queryData, ...rest} = props;
+    const {
+      slot,
+      className: _a,
+      reduxState,
+      component: _b = 'div',
+      children: _c,
+      queryData,
+      ...rest
+    } = props;
     const slots = Array.isArray(slot) ? slot : [slot];
-    return slots.every((slot) => this.context.plugins.isSlotEmpty(slot, reduxState, rest, queryData));
+    return slots.every(slot =>
+      this.context.plugins.isSlotEmpty(slot, reduxState, rest, queryData)
+    );
   }
 
   render() {
-    const {children} = this.props;
+    const { children } = this.props;
     return this.isSlotEmpty() ? Children.only(children) : null;
   }
 }
@@ -38,9 +46,8 @@ IfSlotIsEmpty.propTypes = {
   slot: PropTypes.oneOfType([PropTypes.string, PropTypes.array]),
 };
 
-const mapStateToProps = (state) => ({
-  reduxState: omit(state, 'apollo'),
+const mapStateToProps = state => ({
+  reduxState: state,
 });
 
 export default connect(mapStateToProps, null)(IfSlotIsEmpty);
-

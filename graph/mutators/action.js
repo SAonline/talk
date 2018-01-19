@@ -1,47 +1,82 @@
-const ActionsService = require('../../services/actions');
-const UsersService = require('../../services/users');
 const errors = require('../../errors');
-const {CREATE_ACTION, DELETE_ACTION} = require('../../perms/constants');
+const { CREATE_ACTION, DELETE_ACTION } = require('../../perms/constants');
+const { IGNORE_FLAGS_AGAINST_STAFF } = require('../../config');
+
+/**
+ * getActionItem will return the item that is associated with the given action.
+ * If it does not exist, it will throw an error.
+ *
+ * @param {Object} ctx    the graphql context for the request
+ * @param {Object} action the action being performed
+ * @return {Promise}      resolves to the referenced item
+ */
+const getActionItem = async (ctx, { item_id, item_type }) => {
+  const { loaders: { Comments, Users } } = ctx;
+
+  switch (item_type) {
+    case 'COMMENTS':
+      return Comments.get.load(item_id);
+    case 'USERS':
+      return Users.getByID.load(item_id);
+    default:
+      return null;
+  }
+};
 
 /**
  * Creates an action on a item. If the item is a user flag, sets the user's status to
  * pending.
- * @param  {Object} user        the user performing the request
- * @param  {String} item_id     id of the item to add the action to
- * @param  {String} item_type   type of the item
- * @param  {String} action_type type of the action
- * @return {Promise}            resolves to the action created
+ *
+ * @param  {Object} ctx    the graphql context for the request
+ * @param  {Object} action the action being created
+ * @return {Promise}       resolves to the action created
  */
-const createAction = async ({user = {}, pubsub, loaders: {Comments}}, {item_id, item_type, action_type, group_id, metadata = {}}) => {
+const createAction = async (
+  ctx,
+  { item_id, item_type, action_type, group_id, metadata = {} }
+) => {
+  const { user = {}, pubsub, connectors: { services: { Actions } } } = ctx;
 
-  let comment;
-  if (item_type === 'COMMENTS') {
-    comment = await Comments.get.load(item_id);
-    if (!comment) {
-      throw new Error('Comment not found');
+  // Gets the item referenced by the action.
+  const item = await getActionItem(ctx, { item_id, item_type });
+  if (!item || item === null) {
+    throw errors.ErrNotFound;
+  }
+
+  // If we are ignoring flags against staff, ensure that the target isn't a
+  // staff member.
+  if (IGNORE_FLAGS_AGAINST_STAFF) {
+    if (action_type === 'FLAG') {
+      // If the item is a user, and this is a flag. Check to see if they are
+      // staff, if they are, don't permit the flag.
+      if (item_type === 'USERS' && item.isStaff()) {
+        return null;
+      }
     }
   }
 
-  let action = await ActionsService.create({
+  if (action_type === 'FLAG' && item_type === 'USERS') {
+    // The item is a user, and this is a flag. Check to see if they are staff,
+    // if they are, don't permit the flag.
+    if (item.isStaff()) {
+      throw errors.ErrNotAuthorized;
+    }
+  }
+
+  // Create the action itself.
+  let action = await Actions.create({
     item_id,
     item_type,
     user_id: user.id,
     group_id,
     action_type,
-    metadata
+    metadata,
   });
 
-  if (item_type === 'USERS' && action_type === 'FLAG') {
-
-    // Set the user as pending if it was a user flag and user has no Admin, Staff or Moderation roles
-    let user = await UsersService.findById(item_id);
-    if(!user.isStaff()){
-      await UsersService.setStatus(item_id, 'PENDING');
-    }
-  }
-
-  if (comment) {
-    pubsub.publish('commentFlagged', comment);
+  if (action_type === 'FLAG' && item_type === 'COMMENTS') {
+    // The item is a comment, and this is a flag. Push that the comment was
+    // flagged, don't wait for it to finish.
+    pubsub.publish('commentFlagged', item);
   }
 
   return action;
@@ -49,28 +84,32 @@ const createAction = async ({user = {}, pubsub, loaders: {Comments}}, {item_id, 
 
 /**
  * Deletes an action based on the user id if the user owns that action.
+ *
  * @param  {Object} user the user performing the request
  * @param  {String} id   the id of the action to delete
  * @return {Promise}     resolves to the deleted action, or null if not found.
  */
-const deleteAction = ({user}, {id}) => {
-  return ActionsService.delete({id, user_id: user.id});
+const deleteAction = (ctx, { id }) => {
+  const { user, connectors: { services: { Actions } } } = ctx;
+
+  return Actions.delete({ id, user_id: user.id });
 };
 
-module.exports = (context) => {
-  if (context.user && context.user.can(CREATE_ACTION, DELETE_ACTION)) {
-    return {
-      Action: {
-        create: (action) => createAction(context, action),
-        delete: (action) => deleteAction(context, action)
-      }
-    };
-  }
-
-  return {
+module.exports = ctx => {
+  let mutators = {
     Action: {
       create: () => Promise.reject(errors.ErrNotAuthorized),
-      delete: () => Promise.reject(errors.ErrNotAuthorized)
-    }
+      delete: () => Promise.reject(errors.ErrNotAuthorized),
+    },
   };
+
+  if (ctx.user && ctx.user.can(CREATE_ACTION)) {
+    mutators.Action.create = action => createAction(ctx, action);
+  }
+
+  if (ctx.user && ctx.user.can(DELETE_ACTION)) {
+    mutators.Action.delete = action => deleteAction(ctx, action);
+  }
+
+  return mutators;
 };

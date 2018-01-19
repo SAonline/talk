@@ -1,60 +1,71 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import cn from 'classnames';
 import styles from './ModTag.css';
-import {t} from 'plugin-api/beta/client/services';
-import {Icon} from 'plugin-api/beta/client/components/ui';
-import {getErrorMessages} from 'plugin-api/beta/client/utils';
+import { t } from 'plugin-api/beta/client/services';
+import { Icon } from 'plugin-api/beta/client/components/ui';
 
 export default class ModTag extends React.Component {
   constructor() {
     super();
 
     this.state = {
-      on: false
+      on: false,
     };
-
   }
 
-  handleMouseEnter = (e) => {
+  handleMouseEnter = e => {
     e.preventDefault();
     this.setState({
-      on: true
+      on: true,
     });
-  }
+  };
 
-  handleMouseLeave = (e) => {
+  handleMouseLeave = e => {
     e.preventDefault();
     this.setState({
-      on: false
+      on: false,
     });
-  }
+  };
 
-  postTag = async () => {
-    try {
-      await this.props.postTag();
-    }
-    catch(err) {
-      this.props.notify('error', getErrorMessages(err));
-    }
-  }
+  openFeaturedDialog = (comment, asset) => {
+    this.props.openFeaturedDialog(comment, asset);
+  };
 
   render() {
-    const {alreadyTagged, deleteTag} = this.props;
+    const { alreadyTagged, deleteTag, comment, asset } = this.props;
 
     return alreadyTagged ? (
-      <span className={cn(styles.tag, styles.featured)}
+      <span
+        className={cn(styles.tag, styles.featured)}
         onClick={deleteTag}
         onMouseEnter={this.handleMouseEnter}
-        onMouseLeave={this.handleMouseLeave} >
+        onMouseLeave={this.handleMouseLeave}
+      >
         <Icon name="star_outline" className={cn(styles.tagIcon)} />
-        {!this.state.on ? t('talk-plugin-featured-comments.featured') : t('talk-plugin-featured-comments.un_feature')}
+        {!this.state.on
+          ? t('talk-plugin-featured-comments.featured')
+          : t('talk-plugin-featured-comments.un_feature')}
       </span>
     ) : (
-      <span className={cn(styles.tag, {[styles.featured]: alreadyTagged})}
-        onClick={this.postTag} >
+      <span
+        className={cn(styles.tag, { [styles.featured]: alreadyTagged })}
+        onClick={() => this.openFeaturedDialog(comment, asset)}
+      >
         <Icon name="star_outline" className={cn(styles.tagIcon)} />
-        {alreadyTagged ? t('talk-plugin-featured-comments.featured') : t('talk-plugin-featured-comments.feature')}
+        {alreadyTagged
+          ? t('talk-plugin-featured-comments.featured')
+          : t('talk-plugin-featured-comments.feature')}
       </span>
     );
   }
 }
+
+ModTag.propTypes = {
+  alreadyTagged: PropTypes.bool,
+  deleteTag: PropTypes.func,
+  notify: PropTypes.func,
+  openFeaturedDialog: PropTypes.func,
+  comment: PropTypes.object,
+  asset: PropTypes.object,
+};

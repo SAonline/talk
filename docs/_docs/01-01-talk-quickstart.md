@@ -26,7 +26,7 @@ to persist data. The following versions are supported:
 
 An optional dependency for Talk is
 [Docker](https://www.docker.com/community-edition#/download){:target="_blank"}.
-It is used during [development](#development) to setup the database and can be
+It is used during [development](#development) to set up the database and can be
 used to [install via Docker](#installation-from-docker).  We have tested Talk
 and this documentation with versions {{ site.versions.docker }}.
 
@@ -147,7 +147,7 @@ will definitely not work unless you change those values as well.
 You can now start the application by running:
 
 ```bash
-yarn dev-start
+yarn watch:server
 ```
 
 Continue onto the [Running](#running) section for details on how to complete the
