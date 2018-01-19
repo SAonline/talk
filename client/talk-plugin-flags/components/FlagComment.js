@@ -13,17 +13,8 @@ const getPopupMenu = [
     return {
       header: t('step_1_header'),
       options: [
-<<<<<<< HEAD
-<<<<<<< HEAD
-        {val: 'COMMENTS', text: t('flag_comment')}
-=======
         { val: 'COMMENTS', text: t('flag_comment') },
         { val: 'USERS', text: t('flag_username') },
->>>>>>> coralproject/master
-=======
-        { val: 'COMMENTS', text: t('flag_comment') },
-        { val: 'USERS', text: t('flag_username') },
->>>>>>> coralproject/master
       ],
       button: t('continue'),
       sets: 'itemType',

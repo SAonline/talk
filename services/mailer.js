@@ -33,6 +33,7 @@ templates.render = async (name, format = 'txt', context) => {
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   const filename = path.join(__dirname, 'custom_email', [name, format, 'ejs'].join('.'));
 
   fs.readFile(filename, (err, file) => {
@@ -44,6 +45,8 @@ templates.render = async (name, format = 'txt', context) => {
 =======
 =======
 >>>>>>> coralproject/master
+=======
+>>>>>>> coralproject/master
   const filename = path.join(
     __dirname,
     'email',
@@ -52,6 +55,9 @@ templates.render = async (name, format = 'txt', context) => {
   const file = await fs.readFile(filename, 'utf8');
   const view = _.template(file);
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> coralproject/master
+=======
 >>>>>>> coralproject/master
 =======
 >>>>>>> coralproject/master
