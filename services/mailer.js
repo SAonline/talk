@@ -31,36 +31,14 @@ templates.render = async (name, format = 'txt', context) => {
     }
   }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-  const filename = path.join(__dirname, 'custom_email', [name, format, 'ejs'].join('.'));
-
-  fs.readFile(filename, (err, file) => {
-    if (err) {
-      return reject(err);
-    }
-
-    let view = _.template(file);
-=======
-=======
->>>>>>> coralproject/master
-=======
->>>>>>> coralproject/master
   const filename = path.join(
     __dirname,
-    'email',
+    'custom_email',
     [name, format, 'ejs'].join('.')
   );
   const file = await fs.readFile(filename, 'utf8');
   const view = _.template(file);
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> coralproject/master
-=======
->>>>>>> coralproject/master
-=======
->>>>>>> coralproject/master
+
 
   if (process.env.NODE_ENV === 'production') {
     // If we are in production mode, fill the view cache.
