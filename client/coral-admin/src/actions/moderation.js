@@ -4,15 +4,8 @@ export const toggleModal = open => ({ type: actions.TOGGLE_MODAL, open });
 export const singleView = () => ({ type: actions.SINGLE_VIEW });
 
 // hide shortcuts note
-export const hideShortcutsNote = () => (dispatch, _, { storage }) => {
-  try {
-    if (storage) {
-      storage.setItem('coral:shortcutsNote', 'hide');
-    }
-  } catch (e) {
-    // above will fail in Safari private mode
-  }
-
+export const hideShortcutsNote = () => (dispatch, _, { localStorage }) => {
+  localStorage.setItem('coral:shortcutsNote', 'hide');
   dispatch({ type: actions.HIDE_SHORTCUTS_NOTE });
 };
 
@@ -31,10 +24,16 @@ export const storySearchChange = value => ({
 });
 
 export const clearState = () => ({
-  type: actions.MODERATION_CLEAR_STATE,
+  type: actions.CLEAR_STATE,
 });
 
 export const selectCommentId = id => ({
-  type: actions.MODERATION_SELECT_COMMENT,
+  type: actions.SELECT_COMMENT,
   id,
+});
+
+// Enable or disable the activity indicator subscriptions.
+export const setIndicatorTrack = track => ({
+  type: actions.SET_INDICATOR_TRACK,
+  track,
 });

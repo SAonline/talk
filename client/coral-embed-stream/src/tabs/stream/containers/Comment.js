@@ -4,22 +4,28 @@ import Comment from '../components/Comment';
 import { withFragments } from 'coral-framework/hocs';
 import { getSlotFragmentSpreads } from 'coral-framework/utils';
 import { withSetCommentStatus } from 'coral-framework/graphql/mutations';
-import { THREADING_LEVEL } from '../../../constants/stream';
+import { getDefinitionName } from 'coral-framework/utils';
+import CommentBox from './CommentBox';
+import ReplyBox from './ReplyBox';
+import {
+  THREADING_LEVEL,
+  REPLY_COMMENTS_LOAD_DEPTH,
+} from '../../../constants/stream';
 import hoistStatics from 'recompose/hoistStatics';
 import { nest } from '../../../graphql/utils';
 
 const slots = [
   'streamQuestionArea',
-  'commentInputArea',
   'commentInputDetailArea',
   'commentInfoBar',
   'commentActions',
-  'commentContent',
   'commentReactions',
   'commentAvatar',
   'commentAuthorName',
   'commentAuthorTags',
   'commentTimestamp',
+  'commentTombstone',
+  'commentContent',
 ];
 
 /**
@@ -61,7 +67,7 @@ const withAnimateEnter = hoistStatics(BaseComponent => {
   return WithAnimateEnter;
 });
 
-const singleCommentFragment = gql`
+export const singleCommentFragment = gql`
   fragment CoralEmbedStream_Comment_SingleComment on Comment {
     id
     body
@@ -92,7 +98,11 @@ const singleCommentFragment = gql`
       editableUntil
     }
     ${getSlotFragmentSpreads(slots, 'comment')}
+    ...${getDefinitionName(CommentBox.fragments.comment)}
+    ...${getDefinitionName(ReplyBox.fragments.comment)}
   }
+  ${CommentBox.fragments.comment}
+  ${ReplyBox.fragments.comment}
 `;
 
 const withCommentFragments = withFragments({
@@ -104,7 +114,11 @@ const withCommentFragments = withFragments({
         }
       }
       ${getSlotFragmentSpreads(slots, 'root')}
+      ...${getDefinitionName(CommentBox.fragments.root)}
+      ...${getDefinitionName(ReplyBox.fragments.root)}
     }
+    ${CommentBox.fragments.root}
+    ${ReplyBox.fragments.root}
     `,
   asset: gql`
     fragment CoralEmbedStream_Comment_asset on Asset {
@@ -118,7 +132,7 @@ const withCommentFragments = withFragments({
       ...CoralEmbedStream_Comment_SingleComment
       ${nest(
         `
-        replies(query: {limit: 3, excludeIgnored: $excludeIgnored}) {
+        replies(query: {limit: ${REPLY_COMMENTS_LOAD_DEPTH}, excludeIgnored: $excludeIgnored}) {
           nodes {
             ...CoralEmbedStream_Comment_SingleComment
             ...nest

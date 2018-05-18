@@ -6,6 +6,7 @@ import {
   removeCommentFromEmbedQuery,
 } from './utils';
 import { mapLeaves } from 'coral-framework/utils';
+import { ADMIN, MODERATOR } from 'coral-framework/constants/roles';
 
 export default {
   fragments: {
@@ -92,9 +93,6 @@ export default {
           tag {
             name
             created_at
-          }
-          assigned_by {
-            id
           }
         }
         user {
@@ -198,7 +196,7 @@ export default {
           { mutationResult: { data: { createComment: { comment } } } }
         ) => {
           if (
-            (prev.me.role !== 'ADMIN' &&
+            (![ADMIN, MODERATOR].includes(prev.me.role) &&
               prev.asset.settings.moderation === 'PRE') ||
             comment.status === 'PREMOD' ||
             comment.status === 'REJECTED' ||

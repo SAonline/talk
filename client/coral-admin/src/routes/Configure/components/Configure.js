@@ -1,50 +1,47 @@
-import React, { Component } from 'react';
-
-import { Button, List, Item } from 'coral-ui';
-import styles from './Configure.css';
-import StreamSettings from '../containers/StreamSettings';
-import ModerationSettings from '../containers/ModerationSettings';
-import TechSettings from '../containers/TechSettings';
-import t from 'coral-framework/services/i18n';
-import { can } from 'coral-framework/services/perms';
+import React from 'react';
 import PropTypes from 'prop-types';
+import t from 'coral-framework/services/i18n';
+import { Button, List, Item } from 'coral-ui';
+import { can } from 'coral-framework/services/perms';
+import styles from './Configure.css';
+import SaveChangesDialog from './SaveChangesDialog';
 
-export default class Configure extends Component {
-  getSectionComponent(section) {
-    switch (section) {
-      case 'stream':
-        return StreamSettings;
-      case 'moderation':
-        return ModerationSettings;
-      case 'tech':
-        return TechSettings;
-    }
-    throw new Error(`Unknown section ${section}`);
-  }
-
+class Configure extends React.Component {
   render() {
     const {
-      auth: { user },
       canSave,
+      currentUser,
+      root,
       savePending,
-      setActiveSection,
-      activeSection,
+      settings,
+      clearPending,
     } = this.props;
-    const SectionComponent = this.getSectionComponent(activeSection);
 
-    if (!can(user, 'UPDATE_CONFIG')) {
-      return (
-        <p>
-          You must be an administrator to access config settings. Please find
-          the nearest Admin and ask them to level you up!
-        </p>
-      );
+    if (!can(currentUser, 'UPDATE_CONFIG')) {
+      return <p>{t('configure.access_message')}</p>;
     }
+
+    const passProps = {
+      root,
+      settings,
+      savePending,
+      clearPending,
+      canSave,
+    };
 
     return (
       <div className={styles.container}>
+        <SaveChangesDialog
+          saveDialog={this.props.saveDialog}
+          hideSaveDialog={this.props.hideSaveDialog}
+          saveChanges={this.props.saveChanges}
+          discardChanges={this.props.discardChanges}
+        />
         <div className={styles.leftColumn}>
-          <List onChange={setActiveSection} activeItem={activeSection}>
+          <List
+            onChange={this.props.handleSectionChange}
+            activeItem={this.props.activeSection}
+          >
             <Item itemId="stream" icon="speaker_notes">
               {t('configure.stream_settings')}
             </Item>
@@ -53,6 +50,9 @@ export default class Configure extends Component {
             </Item>
             <Item itemId="tech" icon="code">
               {t('configure.tech_settings')}
+            </Item>
+            <Item itemId="organization" icon="people">
+              {t('configure.organization_information')}
             </Item>
           </List>
           <div className={styles.saveBox}>
@@ -74,11 +74,7 @@ export default class Configure extends Component {
           </div>
         </div>
         <div className={styles.mainContent}>
-          <SectionComponent
-            data={this.props.data}
-            root={this.props.root}
-            settings={this.props.settings}
-          />
+          {React.cloneElement(this.props.children, passProps)}
         </div>
       </div>
     );
@@ -86,13 +82,19 @@ export default class Configure extends Component {
 }
 
 Configure.propTypes = {
-  notify: PropTypes.func.isRequired,
   savePending: PropTypes.func.isRequired,
-  auth: PropTypes.object.isRequired,
-  data: PropTypes.object.isRequired,
+  saveChanges: PropTypes.func.isRequired,
+  discardChanges: PropTypes.func.isRequired,
+  currentUser: PropTypes.object.isRequired,
   root: PropTypes.object.isRequired,
   settings: PropTypes.object.isRequired,
   canSave: PropTypes.bool.isRequired,
-  setActiveSection: PropTypes.func.isRequired,
+  handleSectionChange: PropTypes.func.isRequired,
   activeSection: PropTypes.string.isRequired,
+  children: PropTypes.node.isRequired,
+  saveDialog: PropTypes.bool,
+  hideSaveDialog: PropTypes.func.isRequired,
+  clearPending: PropTypes.func.isRequired,
 };
+
+export default Configure;

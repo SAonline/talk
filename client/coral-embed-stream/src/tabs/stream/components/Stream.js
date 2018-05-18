@@ -1,31 +1,28 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { StreamError } from './StreamError';
+import StreamError from './StreamError';
 import Comment from '../containers/Comment';
 import BannedAccount from '../../../components/BannedAccount';
 import ChangeUsername from '../containers/ChangeUsername';
+import Markdown from 'coral-framework/components/Markdown';
 import Slot from 'coral-framework/components/Slot';
-import InfoBox from 'talk-plugin-infobox/InfoBox';
+import InfoBox from './InfoBox';
 import { can } from 'coral-framework/services/perms';
-import { ModerationLink } from 'talk-plugin-moderation';
+import ModerationLink from './ModerationLink';
 import RestrictedMessageBox from 'coral-framework/components/RestrictedMessageBox';
 import t, { timeago } from 'coral-framework/services/i18n';
-import CommentBox from 'talk-plugin-commentbox/CommentBox';
+import CommentBox from '../containers/CommentBox';
 import QuestionBox from '../../../components/QuestionBox';
-import { isCommentActive } from 'coral-framework/utils';
 import { Tab, TabCount, TabPane } from 'coral-ui';
 import cn from 'classnames';
 import get from 'lodash/get';
-
-import {
-  getTopLevelParent,
-  attachCommentToParent,
-} from '../../../graphql/utils';
+import { reverseCommentParentTree } from '../../../graphql/utils';
 import AllCommentsPane from './AllCommentsPane';
 import ExtendableTabPanel from '../../../containers/ExtendableTabPanel';
+import ChangedUsername from './ChangedUsername';
+import CommentNotFound from '../containers/CommentNotFound';
 
 import styles from './Stream.css';
-
 class Stream extends React.Component {
   constructor(props) {
     super(props);
@@ -43,7 +40,6 @@ class Stream extends React.Component {
 
   renderHighlightedComment() {
     const {
-      data,
       root,
       activeReplyBox,
       setActiveReplyBox,
@@ -58,21 +54,15 @@ class Stream extends React.Component {
       deleteAction,
       showSignInDialog,
       loadNewReplies,
-      auth: { user },
+      currentUser,
       emit,
       viewAllComments,
     } = this.props;
 
-    // even though the permalinked comment is the highlighted one, we're displaying its parent + replies
-    let topLevelComment = getTopLevelParent(comment);
-    if (topLevelComment) {
-      // Inactive comments can be viewed by moderators and admins (e.g. using permalinks).
-      const isInactive = !isCommentActive(comment.status);
-      if (comment.parent && isInactive) {
-        // the highlighted comment is not active and as such not in the replies, so we
-        // attach it to the right parent.
-        topLevelComment = attachCommentToParent(topLevelComment, comment);
-      }
+    let topLevelComment = null;
+    if (comment) {
+      // Reverse the comment tree that we get from bottom-top (comment -> parent) to top-bottom (parent -> comment)
+      topLevelComment = reverseCommentParentTree(comment);
     }
 
     return (
@@ -100,7 +90,6 @@ class Stream extends React.Component {
         </div>
 
         <Comment
-          data={data}
           root={root}
           commentClassNames={commentClassNames}
           setActiveReplyBox={setActiveReplyBox}
@@ -110,8 +99,8 @@ class Stream extends React.Component {
           disableReply={!open}
           postComment={postComment}
           asset={asset}
-          currentUser={user}
-          highlighted={comment.id}
+          currentUser={currentUser}
+          highlighted={comment}
           postFlag={postFlag}
           postDontAgree={postDontAgree}
           loadMore={loadNewReplies}
@@ -131,7 +120,6 @@ class Stream extends React.Component {
 
   renderExtendableTabPanel() {
     const {
-      data,
       root,
       activeReplyBox,
       setActiveReplyBox,
@@ -149,22 +137,21 @@ class Stream extends React.Component {
       setActiveStreamTab,
       loadNewReplies,
       loadMoreComments,
-      auth: { user },
+      currentUser,
       emit,
       sortOrder,
       sortBy,
       loading,
     } = this.props;
 
-    const slotProps = { data };
-    const slotQueryData = { root, asset };
+    const slotPassthrough = { root, asset };
 
     // `key` of `ExtendableTabPanel` depends on sorting so that we always reset
     // the state when changing sorting.
     return (
       <div className={cn('talk-stream-tab-container', styles.tabContainer)}>
         <div className={cn('talk-stream-filter-wrapper', styles.filterWrapper)}>
-          <Slot fill="streamFilter" queryData={slotQueryData} {...slotProps} />
+          <Slot fill="streamFilter" passthrough={slotPassthrough} />
         </div>
 
         <ExtendableTabPanel
@@ -175,8 +162,7 @@ class Stream extends React.Component {
           tabSlot="streamTabs"
           tabSlotPrepend="streamTabsPrepend"
           tabPaneSlot="streamTabPanes"
-          slotProps={slotProps}
-          queryData={slotQueryData}
+          slotPassthrough={slotPassthrough}
           loading={loading}
           tabs={
             <Tab tabId={'all'} key="all">
@@ -189,7 +175,6 @@ class Stream extends React.Component {
           tabPanes={
             <TabPane tabId="all" key="all">
               <AllCommentsPane
-                data={data}
                 root={root}
                 asset={asset}
                 comments={comments}
@@ -197,9 +182,11 @@ class Stream extends React.Component {
                 setActiveReplyBox={setActiveReplyBox}
                 activeReplyBox={activeReplyBox}
                 notify={notify}
-                disableReply={asset.isClosed}
+                disableReply={
+                  asset.isClosed || asset.settings.disableCommenting
+                }
                 postComment={postComment}
-                currentUser={user}
+                currentUser={currentUser}
                 postFlag={postFlag}
                 postDontAgree={postDontAgree}
                 loadMore={loadMoreComments}
@@ -221,7 +208,6 @@ class Stream extends React.Component {
 
   render() {
     const {
-      data,
       root,
       appendItemArray,
       asset,
@@ -229,31 +215,39 @@ class Stream extends React.Component {
       postComment,
       notify,
       updateItem,
-      auth: { loggedIn, user },
+      currentUser,
     } = this.props;
     const { keepCommentBox } = this.state;
-    const open = !asset.isClosed;
+    const open = !(asset.isClosed || asset.settings.disableCommenting);
 
-    const banned = get(user, 'status.banned.status');
-    const suspensionUntil = get(user, 'status.suspension.until');
-    const rejectedUsername = get(user, 'status.username.status') === 'REJECTED';
+    const banned = get(currentUser, 'status.banned.status');
+    const suspensionUntil = get(currentUser, 'status.suspension.until');
+    const rejectedUsername =
+      get(currentUser, 'status.username.status') === 'REJECTED';
+    const changedUsername =
+      get(currentUser, 'status.username.status') === 'CHANGED';
 
     const temporarilySuspended =
-      user && suspensionUntil && new Date(suspensionUntil) > new Date();
+      currentUser && suspensionUntil && new Date(suspensionUntil) > new Date();
 
     const showCommentBox =
-      loggedIn &&
+      currentUser &&
       ((!banned &&
         !temporarilySuspended &&
         !rejectedUsername &&
+        !changedUsername &&
         !highlightedComment) ||
         keepCommentBox);
-    const slotProps = { data };
-    const slotQueryData = { root, asset };
 
     if (highlightedComment === null) {
-      return <StreamError>{t('stream.comment_not_found')}</StreamError>;
+      return (
+        <StreamError>
+          <CommentNotFound />
+        </StreamError>
+      );
     }
+
+    const slotPassthrough = { root, asset };
 
     return (
       <div id="stream" className={styles.root}>
@@ -268,11 +262,7 @@ class Stream extends React.Component {
                 content={asset.settings.questionBoxContent}
                 icon={asset.settings.questionBoxIcon}
               >
-                <Slot
-                  fill="streamQuestionArea"
-                  queryData={slotQueryData}
-                  {...slotProps}
-                />
+                <Slot fill="streamQuestionArea" passthrough={slotPassthrough} />
               </QuestionBox>
             )}
             {!banned &&
@@ -285,10 +275,13 @@ class Stream extends React.Component {
                   )}
                 </RestrictedMessageBox>
               )}
-            {!banned && rejectedUsername && <ChangeUsername user={user} />}
+            {changedUsername && <ChangedUsername />}
+            {!banned &&
+              rejectedUsername && <ChangeUsername user={currentUser} />}
             {banned && <BannedAccount />}
             {showCommentBox && (
               <CommentBox
+                root={root}
                 notify={notify}
                 postComment={postComment}
                 appendItemArray={appendItemArray}
@@ -296,22 +289,28 @@ class Stream extends React.Component {
                 assetId={asset.id}
                 premod={asset.settings.moderation}
                 isReply={false}
-                currentUser={user}
+                currentUser={currentUser}
                 charCountEnable={asset.settings.charCountEnable}
                 maxCharCount={asset.settings.charCount}
               />
             )}
           </div>
         ) : (
-          <p>{asset.settings.closedMessage}</p>
+          <div>
+            {asset.isClosed ? (
+              <p>{asset.settings.closedMessage}</p>
+            ) : (
+              <Markdown content={asset.settings.disableCommentingMessage} />
+            )}
+          </div>
         )}
 
-        <Slot fill="stream" queryData={slotQueryData} {...slotProps} />
+        <Slot fill="stream" passthrough={slotPassthrough} />
 
-        {loggedIn && (
+        {currentUser && (
           <ModerationLink
             assetId={asset.id}
-            isAdmin={can(user, 'MODERATE_COMMENTS')}
+            isAdmin={can(currentUser, 'MODERATE_COMMENTS')}
           />
         )}
 
@@ -326,7 +325,6 @@ class Stream extends React.Component {
 Stream.propTypes = {
   asset: PropTypes.object,
   activeStreamTab: PropTypes.string,
-  data: PropTypes.object,
   root: PropTypes.object,
   activeReplyBox: PropTypes.string,
   setActiveReplyBox: PropTypes.func,
@@ -338,12 +336,11 @@ Stream.propTypes = {
   deleteAction: PropTypes.func,
   showSignInDialog: PropTypes.func,
   loadNewReplies: PropTypes.func,
-  auth: PropTypes.object,
+  currentUser: PropTypes.object,
   emit: PropTypes.func,
   sortOrder: PropTypes.string,
   sortBy: PropTypes.string,
   loading: PropTypes.bool,
-  editName: PropTypes.func,
   appendItemArray: PropTypes.func,
   updateItem: PropTypes.func,
   viewAllComments: PropTypes.func,

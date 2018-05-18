@@ -1,7 +1,6 @@
 import React from 'react';
 import Comment from '../containers/Comment';
 import LoadMore from './LoadMore';
-import { getErrorMessages } from 'plugin-api/beta/client/utils';
 
 class TabPane extends React.Component {
   state = {
@@ -15,16 +14,14 @@ class TabPane extends React.Component {
       .then(() => {
         this.setState({ loadingState: 'success' });
       })
-      .catch(error => {
+      .catch(() => {
         this.setState({ loadingState: 'error' });
-        this.props.notify('error', getErrorMessages(error));
       });
   };
 
   render() {
     const {
       root,
-      data,
       asset: { featuredComments, ...asset },
       viewComment,
     } = this.props;
@@ -34,7 +31,6 @@ class TabPane extends React.Component {
           <Comment
             key={comment.id}
             root={root}
-            data={data}
             comment={comment}
             asset={asset}
             viewComment={viewComment}

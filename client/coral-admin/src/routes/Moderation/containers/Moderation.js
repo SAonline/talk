@@ -15,6 +15,7 @@ import {
   handleCommentChange,
   commentBelongToQueue,
   cleanUpQueue,
+  subscriptionFields,
 } from '../graphql';
 
 import { viewUserDetail } from '../../../actions/userDetail';
@@ -27,6 +28,7 @@ import {
   storySearchChange,
   clearState,
   selectCommentId,
+  setIndicatorTrack,
 } from 'actions/moderation';
 import withQueueConfig from '../hoc/withQueueConfig';
 import { notify } from 'coral-framework/actions/notification';
@@ -108,7 +110,7 @@ class ModerationContainer extends Component {
             comment.status_history[comment.status_history.length - 1]
               .assigned_by;
           const notifyText =
-            this.props.auth.user.id === user.id
+            this.props.currentUser.id === user.id
               ? ''
               : t(
                   'modqueue.notify_accepted',
@@ -129,7 +131,7 @@ class ModerationContainer extends Component {
             comment.status_history[comment.status_history.length - 1]
               .assigned_by;
           const notifyText =
-            this.props.auth.user.id === user.id
+            this.props.currentUser.id === user.id
               ? ''
               : t(
                   'modqueue.notify_rejected',
@@ -150,7 +152,7 @@ class ModerationContainer extends Component {
             comment.status_history[comment.status_history.length - 1]
               .assigned_by;
           const notifyText =
-            this.props.auth.user.id === user.id
+            this.props.currentUser.id === user.id
               ? ''
               : t(
                   'modqueue.notify_reset',
@@ -198,20 +200,41 @@ class ModerationContainer extends Component {
   }
 
   componentWillMount() {
+    if (!this.props.data.variables.asset_id) {
+      // Stop activity indicator tracking, as we'll handle it here.
+      this.props.setIndicatorTrack(false);
+    }
     this.props.clearState();
     this.subscribeToUpdates();
   }
 
   componentWillUnmount() {
+    if (!this.props.data.variables.asset_id) {
+      // Restart activity indicator tracking.
+      this.props.setIndicatorTrack(true);
+    }
     this.unsubscribe();
   }
 
   componentWillReceiveProps(nextProps) {
+    const currentAssetId = this.props.data.variables.asset_id;
+    const nextAssetId = nextProps.data.variables.asset_id;
+
     // Resubscribe when we change between assets.
-    if (
-      this.props.data.variables.asset_id !== nextProps.data.variables.asset_id
-    ) {
+    if (currentAssetId !== nextAssetId) {
       this.resubscribe(nextProps.data.variables);
+    }
+
+    // We are only subscribing to a specific asset_id, so activity indicator
+    // needs to do its own tracking.
+    if (!currentAssetId && nextAssetId) {
+      this.props.setIndicatorTrack(true);
+    }
+
+    // We are subscribing to all comment changes, and as such there is no
+    // need for the activity indicator to do the same.
+    if (currentAssetId && !nextAssetId) {
+      this.props.setIndicatorTrack(false);
     }
   }
 
@@ -269,10 +292,6 @@ class ModerationContainer extends Component {
     const { root, root: { asset, settings }, data } = this.props;
     const assetId = getAssetId(this.props);
 
-    if (data.error) {
-      return <div>Error</div>;
-    }
-
     if (assetId) {
       if (asset === null) {
         // Not found.
@@ -280,7 +299,11 @@ class ModerationContainer extends Component {
       }
     }
 
-    if (data.loading) {
+    if (data.error) {
+      return <div>{data.error.message}</div>;
+    }
+
+    if (data.loading && data.networkStatus !== 3) {
       // loading.
       return <Spinner />;
     }
@@ -291,11 +314,11 @@ class ModerationContainer extends Component {
 
     const currentQueueConfig = Object.assign({}, this.props.queueConfig);
 
-    if (premodEnabled && root.newCount === 0) {
+    if (premodEnabled && root.new.nodes.length === 0) {
       delete currentQueueConfig.new;
     }
 
-    if (!premodEnabled && root.premodCount === 0) {
+    if (!premodEnabled && root.premod.nodes.length === 0) {
       delete currentQueueConfig.premod;
     }
 
@@ -316,10 +339,12 @@ class ModerationContainer extends Component {
     );
   }
 }
+
 const COMMENT_ADDED_SUBSCRIPTION = gql`
   subscription CommentAdded($asset_id: ID){
     commentAdded(asset_id: $asset_id, statuses: null){
       ...${getDefinitionName(Comment.fragments.comment)}
+      ${subscriptionFields}
     }
   }
   ${Comment.fragments.comment}
@@ -329,6 +354,7 @@ const COMMENT_EDITED_SUBSCRIPTION = gql`
   subscription CommentEdited($asset_id: ID){
     commentEdited(asset_id: $asset_id){
       ...${getDefinitionName(Comment.fragments.comment)}
+      ${subscriptionFields}
     }
   }
   ${Comment.fragments.comment}
@@ -338,6 +364,7 @@ const COMMENT_FLAGGED_SUBSCRIPTION = gql`
   subscription CommentFlagged($asset_id: ID){
     commentFlagged(asset_id: $asset_id){
       ...${getDefinitionName(Comment.fragments.comment)}
+      ${subscriptionFields}
     }
   }
   ${Comment.fragments.comment}
@@ -347,14 +374,7 @@ const COMMENT_ACCEPTED_SUBSCRIPTION = gql`
   subscription CommentAccepted($asset_id: ID){
     commentAccepted(asset_id: $asset_id){
       ...${getDefinitionName(Comment.fragments.comment)}
-      status_history {
-        type
-        created_at
-        assigned_by {
-          id
-          username
-        }
-      }
+      ${subscriptionFields}
     }
   }
   ${Comment.fragments.comment}
@@ -364,14 +384,7 @@ const COMMENT_REJECTED_SUBSCRIPTION = gql`
   subscription CommentRejected($asset_id: ID){
     commentRejected(asset_id: $asset_id){
       ...${getDefinitionName(Comment.fragments.comment)}
-      status_history {
-        type
-        created_at
-        assigned_by {
-          id
-          username
-        }
-      }
+      ${subscriptionFields}
     }
   }
   ${Comment.fragments.comment}
@@ -381,14 +394,7 @@ const COMMENT_RESET_SUBSCRIPTION = gql`
   subscription CommentReset($asset_id: ID){
     commentReset(asset_id: $asset_id){
       ...${getDefinitionName(Comment.fragments.comment)}
-      status_history {
-        type
-        created_at
-        assigned_by {
-          id
-          username
-        }
-      }
+      ${subscriptionFields}
     }
   }
   ${Comment.fragments.comment}
@@ -396,7 +402,7 @@ const COMMENT_RESET_SUBSCRIPTION = gql`
 
 const LOAD_MORE_QUERY = gql`
   query CoralAdmin_Moderation_LoadMore($limit: Int = 10, $cursor: Cursor, $sortOrder: SORT_ORDER, $asset_id: ID, $tags:[String!], $statuses:[COMMENT_STATUS!], $action_type: ACTION_TYPE) {
-    comments(query: {limit: $limit, cursor: $cursor, asset_id: $asset_id, statuses: $statuses, sortOrder: $sortOrder, action_type: $action_type, tags: $tags}) {
+    comments(query: {limit: $limit, cursor: $cursor, asset_id: $asset_id, statuses: $statuses, sortOrder: $sortOrder, action_type: $action_type, tags: $tags, excludeDeleted: true}) {
       nodes {
         ...${getDefinitionName(Comment.fragments.comment)}
       }
@@ -426,6 +432,7 @@ const withModQueueQuery = withQuery(
     ${Object.keys(queueConfig).map(
       queue => `
       ${queue}: comments(query: {
+        excludeDeleted: true,
         statuses: ${
           queueConfig[queue].statuses
             ? `[${queueConfig[queue].statuses.join(', ')}],`
@@ -449,9 +456,14 @@ const withModQueueQuery = withQuery(
       }
     `
     )}
-    ${Object.keys(queueConfig).map(
+    ${
+      ''
+      /*
+     TODO: eventually we'll reintroduce counting..
+     Object.keys(queueConfig).map(
       queue => `
       ${queue}Count: commentCount(query: {
+        excludeDeleted: true,
         statuses: ${
           queueConfig[queue].statuses
             ? `[${queueConfig[queue].statuses.join(', ')}],`
@@ -470,7 +482,8 @@ const withModQueueQuery = withQuery(
         asset_id: $asset_id,
       })
     `
-    )}
+    )*/
+    }
     asset(id: $asset_id) @skip(if: $allAssets) {
       id
       title
@@ -509,7 +522,7 @@ const withModQueueQuery = withQuery(
 
 const mapStateToProps = state => ({
   moderation: state.moderation,
-  auth: state.auth,
+  currentUser: state.auth.user,
 });
 
 const mapDispatchToProps = dispatch => ({
@@ -525,6 +538,7 @@ const mapDispatchToProps = dispatch => ({
       clearState,
       notify,
       selectCommentId,
+      setIndicatorTrack,
     },
     dispatch
   ),

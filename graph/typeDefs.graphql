@@ -62,12 +62,37 @@ type Token {
   jwt: String
 }
 
-type UserProfile {
-  # the id is an identifier for the user profile (email, facebook id, etc)
+interface UserProfile {
+  # The id is an identifier for the user profile (email, facebook id, etc)
   id: String!
 
   # name of the provider attached to the authentication mode
   provider: String!
+}
+
+# DefaultUserProfile is a fallback if the type of UserProfile can't be
+# determined (like if it was from a plugin that was removed).
+type DefaultUserProfile implements UserProfile {
+  # The id is an identifier for the user profile (email, facebook id, etc)
+  id: String!
+
+  # name of the provider attached to the authentication mode
+  provider: String!
+}
+
+# LocalUserProfile is for a User who has an authentication profile linked to
+# their email address.
+type LocalUserProfile implements UserProfile {
+  # id is the User's email address.
+  id: String!
+
+  # name of the provider attached to the authentication mode, in this case,
+  # 'local'.
+  provider: String!
+
+  # confirmedAt is the Date that the user had their email address confirmed,
+  # which is null if it has not been verified.
+  confirmedAt: Date
 }
 
 # USER_STATUS_USERNAME is the different states that a username can be in.
@@ -184,13 +209,17 @@ type User {
   # Actions completed on the parent.
   actions: [Action!]
 
-  # the current roles of the user.
+  # The current roles of the user.
   role: USER_ROLES
 
-  # the current profiles of the user.
+  # The current profiles of the user.
   profiles: [UserProfile]
 
-  # the tags on the user
+  # The primary email address of the user. Only accessible to Administrators or
+  # the current user.
+  email: String
+
+  # The tags on the user.
   tags: [TagLink!]
 
   # ignored users.
@@ -389,6 +418,9 @@ input CommentsQuery {
 
   # Exclude comments ignored by the requesting user
   excludeIgnored: Boolean
+
+  # excludeDeleted when true will exclude deleted comments from the response.
+  excludeDeleted: Boolean = false
 }
 
 input RepliesQuery {
@@ -405,6 +437,9 @@ input RepliesQuery {
 
   # Exclude comments ignored by the requesting user
   excludeIgnored: Boolean
+
+  # excludeDeleted when true will exclude deleted comments from the response.
+  excludeDeleted: Boolean = false
 }
 
 # CommentCountQuery allows the ability to query comment counts by specific
@@ -421,7 +456,7 @@ input CommentCountQuery {
   # The URL that the asset is located on.
   asset_url: String
 
-  # the parent of the comment that we want to retrieve.
+  # The parent of the comment that we want to retrieve.
   parent_id: ID
 
   # comments returned will only be ones which have at least one action of this
@@ -434,6 +469,9 @@ input CommentCountQuery {
 
   # Filter by a specific tag name.
   tags: [String!]
+
+  # excludeDeleted when true will exclude deleted comments from the count.
+  excludeDeleted: Boolean = false
 }
 
 # UserCountQuery allows the ability to query user counts by specific
@@ -453,6 +491,11 @@ type EditInfo {
   editableUntil: Date
 }
 
+type CommentBodyHistory {
+  body: String!
+  created_at: Date!
+}
+
 type CommentStatusHistory {
   type: COMMENT_STATUS!
   created_at: Date!
@@ -469,19 +512,23 @@ type Comment {
   id: ID!
 
   # The actual comment data.
-  body: String!
+  body: String
 
-  # the tags on the comment
+  # The body history of the comment. Requires the `ADMIN` or `MODERATOR` role or
+  # the author.
+  body_history: [CommentBodyHistory!]
+
+  # The tags on the comment
   tags: [TagLink!]
 
-  # the user who authored the comment.
+  # The user who authored the comment.
   user: User
 
-  # the replies that were made to the comment.
+  # The replies that were made to the comment.
   replies(query: RepliesQuery = {}): CommentConnection!
 
   # replyCount is the number of replies with a depth of 1. Only direct replies
-  # to this comment are counted.
+  # to this comment are counted. Deleted comments are included in this count.
   replyCount: Int
 
   # Actions completed on the parent. Requires the `ADMIN` role.
@@ -499,14 +546,23 @@ type Comment {
   # The status history of the comment. Requires the `ADMIN` or `MODERATOR` role.
   status_history: [CommentStatusHistory!]
 
+  # The date that the comment was deleted at if it was.
+  deleted_at: Date
+
   # The time when the comment was created
   created_at: Date!
+
+  # The time when the comment was updated.
+  updated_at: Date
 
   # describes how the comment can be edited
   editing: EditInfo
 
   # Indicates if it has a parent
   hasParent: Boolean
+
+  # url is the permalink to this particular Comment on the Asset.
+  url: String
 }
 
 # CommentConnection represents a paginable subset of a comment list.
@@ -754,7 +810,7 @@ type Settings {
   infoBoxContent: String
 
   # questionBoxEnable will enable the Question Box's content to be visible above
-  # the comment box.
+  # The comment box.
   questionBoxEnable: Boolean
 
   # questionBoxContent is the content of the Question Box.
@@ -781,6 +837,13 @@ type Settings {
   # closed.
   closedMessage: String
 
+  # disableCommenting will disable commenting site-wide.
+  disableCommenting: Boolean
+
+  # disableCommentingMessage will be shown above the comment stream while
+  # commenting is disabled site-wide.
+  disableCommentingMessage: String
+
   # editCommentWindowLength is the length of time (in milliseconds) after a
   # comment is posted that it can still be edited by the author.
   editCommentWindowLength: Int
@@ -793,6 +856,9 @@ type Settings {
 
   # organizationName is the name of the organization.
   organizationName: String
+
+  # organizationContactEmail is the email of the organization.
+  organizationContactEmail: String
 
   # wordlist will return a given list of words.
   wordlist: Wordlist
@@ -847,7 +913,7 @@ type Asset {
   # The date that the asset was created.
   created_at: Date
 
-  # the tags on the asset
+  # The tags on the asset
   tags: [TagLink!]
 
   # The author(s) of the asset.
@@ -1080,7 +1146,7 @@ input AssetSettingsInput {
   moderation: MODERATION_MODE
 
   # questionBoxEnable will enable the Question Boxs' content to be visible above
-  # the comment box.
+  # The comment box.
   questionBoxEnable: Boolean
 
   # questionBoxContent is the content of the Question Box.
@@ -1156,7 +1222,7 @@ input ModifyTagInput {
   item_type: TAGGABLE_ITEM_TYPE!
 
   # asset_id is used when the item_type is `COMMENTS`, the is needed to rectify
-  # the settings to get the asset specific tags/settings.
+  # The settings to get the asset specific tags/settings.
   asset_id: ID
 }
 
@@ -1214,7 +1280,7 @@ input UpdateSettingsInput {
   infoBoxContent: String
 
   # questionBoxEnable will enable the Question Box's content to be visible above
-  # the comment box.
+  # The comment box.
   questionBoxEnable: Boolean
 
   # questionBoxContent is the content of the Question Box.
@@ -1241,6 +1307,13 @@ input UpdateSettingsInput {
   # closed.
   closedMessage: String
 
+  # disableCommenting will disable commenting site-wide.
+  disableCommenting: Boolean
+
+  # disableCommentingMessage will be shown above the comment stream while
+  # commenting is disabled site-wide.
+  disableCommentingMessage: String
+
   # charCountEnable is true when the character count restriction is enabled.
   charCountEnable: Boolean
 
@@ -1249,6 +1322,9 @@ input UpdateSettingsInput {
 
   # organizationName is the name of the organization.
   organizationName: String
+
+  # organizationContactEmail is the email of the organization.
+  organizationContactEmail: String
 
   # editCommentWindowLength is the length of time (in milliseconds) after a
   # comment is posted that it can still be edited by the author.
@@ -1380,6 +1456,33 @@ type SetUserRoleResponse implements Response {
   errors: [UserError!]
 }
 
+type ForceScrapeAssetResponse implements Response {
+
+  # An array of errors relating to the mutation that occurred.
+  errors: [UserError!]
+}
+
+type DelUserResponse implements Response {
+
+  # An array of errors relating to the mutation that occurred.
+  errors: [UserError!]
+}
+
+input ChangePasswordInput {
+  # oldPassword is the previous password set on the account. An incorrect
+  # password here will result in an unauthorized error being thrown.
+  oldPassword: String!
+
+  # newPassword is the password we're changing it to.
+  newPassword: String!
+}
+
+type ChangePasswordResponse implements Response {
+
+  # An array of errors relating to the mutation that occurred.
+  errors: [UserError!]
+}
+
 # All mutations for the application are defined on this object.
 type RootMutation {
 
@@ -1474,6 +1577,21 @@ type RootMutation {
 
   # Stop Ignoring comments by another user.
   stopIgnoringUser(id: ID!): StopIgnoringUserResponse
+
+  # forceScrapeAsset will force scrape the Asset with the given ID.
+  forceScrapeAsset(id: ID!): ForceScrapeAssetResponse
+
+  # delUser will delete the user with the specified id.
+  delUser(id: ID!): DelUserResponse
+
+  # changePassword allows the current user to change their password that have an
+  # associated local user account.
+  changePassword(input: ChangePasswordInput!): ChangePasswordResponse
+}
+
+type UsernameChangedPayload {
+  previousUsername: String
+  user: User
 }
 
 ################################################################################
@@ -1517,14 +1635,27 @@ type Subscription {
   # users with the `ADMIN` or `MODERATOR` role.
   userBanned(user_id: ID): User
 
+  # Get an update whenever a username was flagged.
+  # `user_id` must match id of current user except for
+  # users with the `ADMIN` or `MODERATOR` role.
+  usernameFlagged(user_id: ID): User
+
   # Get an update whenever a username has been rejected.
   # `user_id` must match id of current user except for
   # users with the `ADMIN` or `MODERATOR` role.
   usernameRejected(user_id: ID): User
 
-  # Gen an update whenever a username has been approved. `user_id` must match id
+  # Get an update whenever a username has been approved. `user_id` must match id
   # of current user except for users with the `ADMIN` or `MODERATOR` role.
   usernameApproved(user_id: ID): User
+
+  # Get an update whenever a username has been changed. `user_id` must match id
+  # of current user except for users with the `ADMIN` or `MODERATOR` role.
+  usernameChanged(user_id: ID): UsernameChangedPayload
+
+  # Get an update whenever a user is created. Only accessible to users with the
+  # `ADMIN` or `MODERATOR` roles.
+  userCreated: User
 }
 
 ################################################################################

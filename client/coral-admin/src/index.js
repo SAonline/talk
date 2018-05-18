@@ -14,8 +14,9 @@ import { hideShortcutsNote } from './actions/moderation';
 
 smoothscroll.polyfill();
 
-function init({ store, storage }) {
-  if (storage && storage.getItem('coral:shortcutsNote') === 'hide') {
+function init({ store, localStorage }) {
+  const shouldHide = localStorage.getItem('coral:shortcutsNote') === 'hide';
+  if (shouldHide) {
     store.dispatch(hideShortcutsNote());
   }
 }

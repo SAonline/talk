@@ -1,5 +1,5 @@
 import * as actions from '../constants/stream';
-import * as authActions from '../constants/auth';
+import * as authActions from 'coral-framework/constants/auth';
 
 function getQueryVariable(variable) {
   let query = window.location.search.substring(1);
@@ -25,6 +25,7 @@ const initialState = {
   previousTab: '',
   sortBy: 'CREATED_AT',
   sortOrder: 'DESC',
+  commentBoxTags: [],
 };
 
 export default function stream(state = initialState, action) {
@@ -73,6 +74,24 @@ export default function stream(state = initialState, action) {
         ...state,
         sortOrder: action.sortOrder ? action.sortOrder : state.sortOrder,
         sortBy: action.sortBy ? action.sortBy : state.sortBy,
+      };
+    case actions.ADD_COMMENT_BOX_TAG:
+      return {
+        ...state,
+        commentBoxTags: [...state.commentBoxTags, action.tag],
+      };
+    case actions.REMOVE_COMMENT_BOX_TAG:
+      return {
+        ...state,
+        commentBoxTags: [
+          ...state.commentBoxTags.slice(0, action.idx),
+          ...state.commentBoxTags.slice(action.idx + 1),
+        ],
+      };
+    case actions.CLEAR_COMMENT_BOX_TAGS:
+      return {
+        ...state,
+        commentBoxTags: [],
       };
     default:
       return state;

@@ -1,16 +1,15 @@
 #!/usr/bin/env node
 
-/**
- * Module dependencies.
- */
-
-require('./util');
 const program = require('commander');
-const { head, map } = require('lodash');
-const Matcher = require('did-you-mean');
 
+// We're requiring this here so it'll setup some promise rejection hooks to log
+// out.
+require('./util');
+
+// Setup the program.
 program
   .command('serve', 'serve the application')
+  .command('db', 'run database commands')
   .command('settings', 'interact with the application settings')
   .command('assets', 'interact with assets')
   .command('setup', 'setup the application')
@@ -18,43 +17,8 @@ program
   .command('token', 'work with the access tokens')
   .command('users', 'work with the application auth')
   .command('migration', 'provides utilities for migrating the database')
-  .command('verify', 'provides utilities for performing data verification')
   .command(
     'plugins',
     'provides utilities for interacting with the plugin system'
   )
   .parse(process.argv);
-
-// If the command wasn't found, output help.
-const commands = map(program.commands, '_name');
-const command = head(program.args);
-if (!commands.includes(command)) {
-  const m = new Matcher(commands);
-  const similarCommands = m.list(command);
-
-  console.error(
-    `cli '${command}' is not a talk cli command. See 'cli --help'.`
-  );
-  if (similarCommands.length > 0) {
-    const sc = similarCommands.map(({ value }) => `\t${value}\n`).join('');
-    console.error(`\nThe most similar commands are\n${sc}`);
-  }
-  process.exit(1);
-}
-
-// /**
-//  * When this process exists, check to see if we have a running command, if we do
-//  * check to see if it is still running. If it is, then kill it with a SIGINT
-//  * signal. This is for the use case where we want to kill the process that is
-//  * labeled with the PID written out by the parent process.
-//  */
-// process.once('exit', () => {
-//   if (
-
-//     // program.runningCommand &&
-//     program.runningCommand.killed === false &&
-//     program.runningCommand.exitCode === null
-//   ) {
-//     program.runningCommand.kill('SIGINT');
-//   }
-// });

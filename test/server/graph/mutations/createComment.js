@@ -3,12 +3,12 @@ const { graphql } = require('graphql');
 const schema = require('../../../../graph/schema');
 const Context = require('../../../../graph/context');
 
-const UserModel = require('../../../../models/user');
-const AssetModel = require('../../../../models/asset');
 const ActionModel = require('../../../../models/action');
+const AssetModel = require('../../../../models/asset');
+const CommentModel = require('../../../../models/comment');
+const UserModel = require('../../../../models/user');
 
 const SettingsService = require('../../../../services/settings');
-const CommentsService = require('../../../../services/comments');
 
 const { expect } = require('chai');
 
@@ -49,6 +49,9 @@ describe('graph.mutations.createComment', () => {
 
             return graphql(schema, query, {}, context).then(
               ({ data, errors }) => {
+                if (errors) {
+                  console.error(errors);
+                }
                 expect(errors).to.be.undefined;
                 if (error) {
                   expect(data.createComment).to.have.property('comment').null;
@@ -98,7 +101,9 @@ describe('graph.mutations.createComment', () => {
           async () => {
             const context = new Context({ user });
             const { data, errors } = await graphql(schema, query, {}, context);
-
+            if (errors) {
+              console.error(errors);
+            }
             expect(errors).to.be.undefined;
             if (error) {
               expect(data.createComment).to.have.property('comment').null;
@@ -144,6 +149,54 @@ describe('graph.mutations.createComment', () => {
     ].forEach(({ asset, error }) => {
       describe(`asset.isClosed=${asset.isClosed}`, () => {
         beforeEach(() => asset.save());
+
+        it(
+          error ? 'does not create the comment' : 'creates the comment',
+          () => {
+            const context = new Context({ user: new UserModel({}) });
+
+            return graphql(schema, query, {}, context).then(
+              ({ data, errors }) => {
+                expect(errors).to.be.undefined;
+                if (error) {
+                  expect(data.createComment).to.have.property('comment').null;
+                  expect(data.createComment).to.have.property('errors').not
+                    .null;
+                  expect(data.createComment.errors[0]).to.have.property(
+                    'translation_key',
+                    error
+                  );
+                } else {
+                  expect(data.createComment).to.have.property('comment').not
+                    .null;
+                  expect(data.createComment).to.have.property('errors').null;
+                }
+              }
+            );
+          }
+        );
+      });
+    });
+  });
+
+  describe('assets while commenting is disabled', () => {
+    [
+      {
+        disabled: false,
+        error: null,
+      },
+      {
+        disabled: true,
+        error: 'COMMENTING_DISABLED',
+      },
+    ].forEach(({ disabled, error }) => {
+      describe(`commentingDisabled=${disabled}`, () => {
+        beforeEach(() =>
+          AssetModel.create({
+            id: '123',
+            settings: { disableCommenting: disabled },
+          })
+        );
 
         it(
           error ? 'does not create the comment' : 'creates the comment',
@@ -265,6 +318,49 @@ describe('graph.mutations.createComment', () => {
     });
   });
 
+  describe('user with different username statuses', () => {
+    beforeEach(() => AssetModel.create({ id: '123' }));
+
+    [
+      { status: 'UNSET', error: true },
+      { status: 'SET', error: false },
+      { status: 'APPROVED', error: false },
+      { status: 'REJECTED', error: true },
+      { status: 'CHANGED', error: true },
+    ].forEach(({ status, error }) => {
+      describe(`user.status.username.status=${status}`, () => {
+        it(`${error ? 'can not' : 'can'} create a comment`, async () => {
+          const context = new Context({
+            user: new UserModel({ status: { username: { status } } }),
+          });
+
+          const { data, errors } = await graphql(schema, query, {}, context);
+
+          if (errors) {
+            console.error(errors);
+          }
+          expect(errors).to.be.undefined;
+
+          if (error) {
+            expect(data.createComment).to.have.property('errors').not.null;
+            expect(data.createComment).to.have.property('comment').null;
+            expect(data.createComment.errors).to.have.length(1);
+            expect(data.createComment.errors[0]).to.have.property(
+              'translation_key',
+              'NOT_AUTHORIZED'
+            );
+          } else {
+            if (data.createComment.errors) {
+              console.error(data.createComment.errors);
+            }
+            expect(data.createComment).to.have.property('errors').null;
+            expect(data.createComment).to.have.property('comment').not.null;
+          }
+        });
+      });
+    });
+  });
+
   describe('users with different roles', () => {
     beforeEach(() => AssetModel.create({ id: '123' }));
 
@@ -288,9 +384,9 @@ describe('graph.mutations.createComment', () => {
           expect(data.createComment).to.have.property('comment').not.null;
           expect(data.createComment).to.have.property('errors').null;
 
-          const { tags } = await CommentsService.findById(
-            data.createComment.comment.id
-          );
+          const { tags } = await CommentModel.findOne({
+            id: data.createComment.comment.id,
+          });
           if (tag) {
             expect(tags).to.have.length(1);
             expect(tags[0].tag.name).to.have.equal(tag);

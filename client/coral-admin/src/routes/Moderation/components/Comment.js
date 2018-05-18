@@ -8,11 +8,12 @@ import styles from './Comment.css';
 import CommentLabels from 'coral-admin/src/components/CommentLabels';
 import CommentAnimatedEdit from 'coral-admin/src/components/CommentAnimatedEdit';
 import Slot from 'coral-framework/components/Slot';
-import CommentFormatter from 'coral-admin/src/components/CommentFormatter';
+import AdminCommentContent from 'coral-framework/components/AdminCommentContent';
 import IfHasLink from 'coral-admin/src/components/IfHasLink';
 import cn from 'classnames';
 import ApproveButton from 'coral-admin/src/components/ApproveButton';
 import RejectButton from 'coral-admin/src/components/RejectButton';
+import CommentDeletedTombstone from '../../../components/CommentDeletedTombstone';
 
 import t, { timeago } from 'coral-framework/services/i18n';
 
@@ -53,7 +54,6 @@ class Comment extends React.Component {
       comment,
       selected,
       className,
-      data,
       root,
       root: { settings },
       currentAsset,
@@ -62,7 +62,40 @@ class Comment extends React.Component {
     } = this.props;
 
     const selectionStateCSS = selected ? 'mdl-shadow--16dp' : 'mdl-shadow--2dp';
-    const queryData = { root, comment, asset: comment.asset };
+
+    const formatterSettings = {
+      suspectWords: settings.wordlist.suspect,
+      bannedWords: settings.wordlist.banned,
+      body: comment.body,
+    };
+
+    const slotPassthrough = {
+      clearHeightCache,
+      root,
+      comment,
+      asset: comment.asset,
+    };
+
+    if (!comment.body) {
+      return (
+        <li
+          tabIndex={0}
+          className={cn(
+            className,
+            'mdl-card',
+            selectionStateCSS,
+            styles.root,
+            { [styles.selected]: selected, [styles.dangling]: dangling },
+            'talk-admin-moderate-comment',
+            styles.deleted
+          )}
+          id={`comment_${comment.id}`}
+          ref={this.handleRef}
+        >
+          <CommentDeletedTombstone />
+        </li>
+      );
+    }
 
     return (
       <li
@@ -107,16 +140,15 @@ class Comment extends React.Component {
                 <CommentLabels comment={comment} />
                 <Slot
                   fill="adminCommentInfoBar"
-                  data={data}
-                  clearHeightCache={clearHeightCache}
-                  queryData={queryData}
+                  passthrough={slotPassthrough}
                 />
               </div>
             </div>
           </div>
 
           <div className={styles.moderateArticle}>
-            Story: {comment.asset.title}
+            {t('common.story')}:{' '}
+            {comment.asset.title ? comment.asset.title : comment.asset.url}
             {!currentAsset && (
               <Link to={`/admin/moderate/${comment.asset.id}`}>
                 {t('modqueue.moderate')}
@@ -126,29 +158,28 @@ class Comment extends React.Component {
           <CommentAnimatedEdit body={comment.body}>
             <div className={styles.itemBody}>
               <div className={styles.body}>
-                <CommentFormatter
-                  suspectWords={settings.wordlist.suspect}
-                  bannedWords={settings.wordlist.banned}
-                  className="talk-admin-comment"
-                  body={comment.body}
+                <Slot
+                  fill="adminCommentContent"
+                  className={cn(styles.commentContent, 'talk-admin-comment')}
+                  size={1}
+                  defaultComponent={AdminCommentContent}
+                  passthrough={{ ...slotPassthrough, ...formatterSettings }}
                 />
-                <a
-                  className={styles.external}
-                  href={`${comment.asset.url}?commentId=${comment.id}`}
-                  target="_blank"
-                >
-                  <Icon name="open_in_new" /> {t('comment.view_context')}
-                </a>
+                <div className={styles.commentContentFooter}>
+                  <a
+                    className={styles.external}
+                    href={`${comment.asset.url}?commentId=${comment.id}`}
+                    target="_blank"
+                  >
+                    <Icon name="open_in_new" /> {t('comment.view_context')}
+                  </a>
+                </div>
               </div>
-              <Slot
-                fill="adminCommentContent"
-                data={data}
-                clearHeightCache={clearHeightCache}
-                queryData={queryData}
-              />
+
               <div className={styles.sideActions}>
                 <IfHasLink text={comment.body}>
                   <span className={styles.hasLinks}>
+                    {/* TODO: translate string */}
                     <Icon name="error_outline" /> Contains Link
                   </span>
                 </IfHasLink>
@@ -162,18 +193,12 @@ class Comment extends React.Component {
                     onClick={this.reject}
                   />
                 </div>
-                <Slot
-                  fill="adminSideActions"
-                  data={data}
-                  clearHeightCache={clearHeightCache}
-                  queryData={queryData}
-                />
+                <Slot fill="adminSideActions" passthrough={slotPassthrough} />
               </div>
             </div>
           </CommentAnimatedEdit>
         </div>
         <CommentDetails
-          data={data}
           root={root}
           comment={comment}
           clearHeightCache={clearHeightCache}
@@ -197,7 +222,7 @@ Comment.propTypes = {
   comment: PropTypes.shape({
     id: PropTypes.string.isRequired,
     status: PropTypes.string.isRequired,
-    body: PropTypes.string.isRequired,
+    body: PropTypes.string,
     action_summaries: PropTypes.array,
     actions: PropTypes.array,
     created_at: PropTypes.string.isRequired,
@@ -211,7 +236,6 @@ Comment.propTypes = {
       id: PropTypes.string,
     }),
   }),
-  data: PropTypes.object.isRequired,
   root: PropTypes.object.isRequired,
   selected: PropTypes.bool,
 };

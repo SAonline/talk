@@ -28,7 +28,7 @@ module.exports = {
         return this.section.comments;
       },
       navigateToAsset: function(asset) {
-        this.api.url(`${this.api.launchUrl}/assets/title/${asset}`);
+        this.api.url(`${this.api.launchUrl}/dev/assets/title/${asset}`);
         return this;
       },
       switchToIframe: function() {
@@ -44,7 +44,7 @@ module.exports = {
     },
   ],
   url: function() {
-    return this.api.launchUrl;
+    return this.api.launchUrl + '/dev/';
   },
   elements: {
     iframe: `#${iframeId}`,
@@ -97,7 +97,7 @@ module.exports = {
       elements: {
         logoutButton: '.talk-stream-userbox-logout',
         signInButton: '#coralSignInButton',
-        commentBoxTextarea: '#commentText',
+        commentBoxTextarea: '.talk-plugin-commentbox-textarea',
         commentBoxPostButton: '.talk-plugin-commentbox-button',
         firstComment: '.talk-stream-comment.talk-stream-comment-level-0',
         firstCommentContent:
@@ -129,7 +129,7 @@ module.exports = {
           selector: '.talk-plugin-moderation-actions',
           elements: {
             arrow: '.talk-plugin-moderation-actions-arrow',
-            menu: '.talk-plugin-modetarion-actions-menu',
+            menu: '.talk-plugin-moderation-actions-menu',
             banButton: '.talk-plugin-moderation-actions-ban',
           },
         },

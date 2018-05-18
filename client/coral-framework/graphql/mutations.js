@@ -169,7 +169,7 @@ export const withSetCommentStatus = withMutation(
           },
           update: proxy => {
             const fragment = gql`
-              fragment Talk_SetCommentStatus on Comment {
+              fragment Talk_SetCommentStatus_Comment on Comment {
                 status
                 status_history {
                   type
@@ -182,9 +182,11 @@ export const withSetCommentStatus = withMutation(
             const data = proxy.readFragment({ fragment, id: fragmentId });
 
             data.status = status;
+
             data.status_history = data.status_history
               ? data.status_history
               : [];
+
             data.status_history.push({
               __typename: 'CommentStatusHistory',
               type: status,
@@ -590,6 +592,27 @@ export const withUpdateSettings = withMutation(
   }
 );
 
+export const withChangePassword = withMutation(
+  gql`
+    mutation ChangePassword($input: ChangePasswordInput!) {
+      changePassword(input: $input) {
+        ...ChangePasswordResponse
+      }
+    }
+  `,
+  {
+    props: ({ mutate }) => ({
+      changePassword: input => {
+        return mutate({
+          variables: {
+            input,
+          },
+        });
+      },
+    }),
+  }
+);
+
 export const withUpdateAssetSettings = withMutation(
   gql`
     mutation UpdateAssetSettings($id: ID!, $input: AssetSettingsInput!) {
@@ -698,7 +721,7 @@ export const withCloseAsset = withMutation(
             const fragmentId = `Asset_${id}`;
             const data = {
               __typename: 'Asset',
-              closedAt: new Date(),
+              closedAt: new Date().toISOString(),
               isClosed: true,
             };
             proxy.writeFragment({ fragment, id: fragmentId, data });

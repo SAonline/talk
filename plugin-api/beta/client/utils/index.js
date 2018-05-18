@@ -8,4 +8,6 @@ export {
   getErrorMessages,
   getDefinitionName,
   getShallowChanges,
+  createDefaultResponseFragments,
+  handlePopupAuth,
 } from 'coral-framework/utils';

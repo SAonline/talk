@@ -57,7 +57,7 @@ const findOrCreateAssetByURL = async (ctx, url) => {
   try {
     new URL(url);
   } catch (err) {
-    throw ErrInvalidAssetURL;
+    throw new ErrInvalidAssetURL(url);
   }
 
   // Try the easy lookup first.
@@ -71,12 +71,12 @@ const findOrCreateAssetByURL = async (ctx, url) => {
   // Check for whitelisting + get the settings at the same time.
   const [whitelisted, settings] = await Promise.all([
     DomainList.urlCheck(url),
-    Settings.load('autoCloseStream closedTimeout'),
+    Settings.select('autoCloseStream', 'closedTimeout'),
   ]);
 
   // If the domain wasn't whitelisted, then we shouldn't create this asset!
   if (!whitelisted) {
-    throw ErrInvalidAssetURL;
+    throw new ErrInvalidAssetURL(url);
   }
 
   // Construct the update operator that we'll use to create the asset.
@@ -119,7 +119,7 @@ const findOrCreateAssetByURL = async (ctx, url) => {
   // If this is a new asset, then we need to scrape it!
   if (!asset.scraped) {
     // Create the Scraper job.
-    await Scraper.create(asset);
+    await Scraper.create(ctx, asset.id);
   }
 
   return asset;
@@ -135,7 +135,7 @@ const findByUrl = async (
   try {
     new URL(asset_url);
   } catch (err) {
-    throw errors.ErrInvalidAssetURL;
+    throw new errors.ErrInvalidAssetURL(asset_url);
   }
 
   return Assets.findByUrl(asset_url);

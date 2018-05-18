@@ -1,17 +1,18 @@
 import React from 'react';
 import PropTypes from 'prop-types';
+import Slot from 'coral-framework/components/Slot';
 import { Link } from 'react-router';
-
 import { Icon } from 'coral-ui';
 import CommentDetails from './CommentDetails';
 import styles from './UserDetailComment.css';
-import CommentFormatter from 'coral-admin/src/components/CommentFormatter';
+import AdminCommentContent from 'coral-framework/components/AdminCommentContent';
 import IfHasLink from 'coral-admin/src/components/IfHasLink';
 import cn from 'classnames';
 import CommentAnimatedEdit from './CommentAnimatedEdit';
 import CommentLabels from '../containers/CommentLabels';
 import ApproveButton from './ApproveButton';
 import RejectButton from 'coral-admin/src/components/RejectButton';
+import CommentDeletedTombstone from './CommentDeletedTombstone';
 
 import t, { timeago } from 'coral-framework/services/i18n';
 
@@ -32,9 +33,29 @@ class UserDetailComment extends React.Component {
       selected,
       toggleSelect,
       className,
-      data,
-      root: { settings: { wordlist: { banned, suspect } } },
+      root: { settings },
     } = this.props;
+
+    const slotPassthrough = {
+      root,
+      comment,
+      suspectWords: settings.wordlist.suspect,
+      bannedWords: settings.wordlist.banned,
+      body: comment.body,
+    };
+
+    if (!comment.body) {
+      return (
+        <li
+          tabIndex={0}
+          className={cn(className, styles.root, {
+            [styles.rootSelected]: selected,
+          })}
+        >
+          <CommentDeletedTombstone />
+        </li>
+      );
+    }
 
     return (
       <li
@@ -68,7 +89,8 @@ class UserDetailComment extends React.Component {
             </div>
           </div>
           <div className={styles.story}>
-            Story: {comment.asset.title}
+            {t('common.story')}:{' '}
+            {comment.asset.title ? comment.asset.title : comment.asset.url}
             {
               <Link to={`/admin/moderate/${comment.asset.id}`}>
                 {t('modqueue.moderate')}
@@ -78,11 +100,15 @@ class UserDetailComment extends React.Component {
           <CommentAnimatedEdit body={comment.body}>
             <div className={styles.bodyContainer}>
               <div className={styles.body}>
-                <CommentFormatter
-                  suspectWords={suspect}
-                  bannedWords={banned}
-                  body={comment.body}
-                  className="talk-admin-user-detail-comment"
+                <Slot
+                  fill="userDetailCommentContent"
+                  className={cn(
+                    styles.commentContent,
+                    'talk-admin-user-detail-comment'
+                  )}
+                  size={1}
+                  defaultComponent={AdminCommentContent}
+                  passthrough={slotPassthrough}
                 />
                 <a
                   className={styles.external}
@@ -95,6 +121,7 @@ class UserDetailComment extends React.Component {
               <div className={styles.sideActions}>
                 <IfHasLink text={comment.body}>
                   <span className={styles.hasLinks}>
+                    {/* TODO: translate string */}
                     <Icon name="error_outline" /> Contains Link
                   </span>
                 </IfHasLink>
@@ -114,7 +141,7 @@ class UserDetailComment extends React.Component {
             </div>
           </CommentAnimatedEdit>
         </div>
-        <CommentDetails data={data} root={root} comment={comment} />
+        <CommentDetails root={root} comment={comment} />
       </li>
     );
   }
@@ -122,7 +149,6 @@ class UserDetailComment extends React.Component {
 
 UserDetailComment.propTypes = {
   selected: PropTypes.bool,
-  data: PropTypes.object,
   user: PropTypes.object.isRequired,
   viewUserDetail: PropTypes.func.isRequired,
   acceptComment: PropTypes.func.isRequired,
@@ -140,7 +166,7 @@ UserDetailComment.propTypes = {
   comment: PropTypes.shape({
     id: PropTypes.string.isRequired,
     status: PropTypes.string.isRequired,
-    body: PropTypes.string.isRequired,
+    body: PropTypes.string,
     actions: PropTypes.array,
     created_at: PropTypes.string.isRequired,
     asset: PropTypes.shape({

@@ -10,10 +10,15 @@ class TalkProvider extends React.Component {
       plugins: this.props.plugins,
       rest: this.props.rest,
       graphql: this.props.graphql,
+      introspection: this.props.introspection,
       notification: this.props.notification,
-      storage: this.props.storage,
+      localStorage: this.props.localStorage,
+      sessionStorage: this.props.sessionStorage,
       history: this.props.history,
       store: this.props.store,
+      pymLocalStorage: this.props.pymLocalStorage,
+      pymSessionStorage: this.props.pymSessionStorage,
+      postMessage: this.props.postMessage,
     };
   }
 
@@ -25,14 +30,21 @@ class TalkProvider extends React.Component {
 
 TalkProvider.childContextTypes = {
   pym: PropTypes.object,
+  introspection: PropTypes.object,
   eventEmitter: PropTypes.object,
   plugins: PropTypes.object,
   rest: PropTypes.func,
   graphql: PropTypes.object,
   notification: PropTypes.object,
-  storage: PropTypes.object,
+  localStorage: PropTypes.object,
+  sessionStorage: PropTypes.object,
+  pymLocalStorage: PropTypes.object,
+  pymSessionStorage: PropTypes.object,
   history: PropTypes.object,
   store: PropTypes.object,
+  postMessage: PropTypes.object,
 };
+
+TalkProvider.propTypes = TalkProvider.childContextTypes;
 
 export default TalkProvider;

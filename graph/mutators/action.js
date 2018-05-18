@@ -1,4 +1,4 @@
-const errors = require('../../errors');
+const { ErrNotFound, ErrNotAuthorized } = require('../../errors');
 const { CREATE_ACTION, DELETE_ACTION } = require('../../perms/constants');
 const { IGNORE_FLAGS_AGAINST_STAFF } = require('../../config');
 
@@ -14,8 +14,15 @@ const getActionItem = async (ctx, { item_id, item_type }) => {
   const { loaders: { Comments, Users } } = ctx;
 
   switch (item_type) {
-    case 'COMMENTS':
-      return Comments.get.load(item_id);
+    case 'COMMENTS': {
+      // Get a comment by ID, unless the comment is deleted, then return null.
+      const comment = await Comments.get.load(item_id);
+      if (comment.deleted_at) {
+        return null;
+      }
+
+      return comment;
+    }
     case 'USERS':
       return Users.getByID.load(item_id);
     default:
@@ -40,7 +47,7 @@ const createAction = async (
   // Gets the item referenced by the action.
   const item = await getActionItem(ctx, { item_id, item_type });
   if (!item || item === null) {
-    throw errors.ErrNotFound;
+    throw new ErrNotFound();
   }
 
   // If we are ignoring flags against staff, ensure that the target isn't a
@@ -59,7 +66,7 @@ const createAction = async (
     // The item is a user, and this is a flag. Check to see if they are staff,
     // if they are, don't permit the flag.
     if (item.isStaff()) {
-      throw errors.ErrNotAuthorized;
+      throw new ErrNotAuthorized();
     }
   }
 
@@ -73,10 +80,20 @@ const createAction = async (
     metadata,
   });
 
-  if (action_type === 'FLAG' && item_type === 'COMMENTS') {
-    // The item is a comment, and this is a flag. Push that the comment was
-    // flagged, don't wait for it to finish.
-    pubsub.publish('commentFlagged', item);
+  if (action_type === 'FLAG') {
+    switch (item_type) {
+      case 'COMMENTS':
+        // The item is a comment, and this is a flag. Push that the comment was
+        // flagged, don't wait for it to finish.
+        pubsub.publish('commentFlagged', item);
+        break;
+      case 'USERS':
+        // The item is a user, and this is a flag. Push that the user was
+        // flagged, don't wait for it to finish.
+        pubsub.publish('usernameFlagged', item);
+        break;
+      default:
+    }
   }
 
   return action;
@@ -98,8 +115,8 @@ const deleteAction = (ctx, { id }) => {
 module.exports = ctx => {
   let mutators = {
     Action: {
-      create: () => Promise.reject(errors.ErrNotAuthorized),
-      delete: () => Promise.reject(errors.ErrNotAuthorized),
+      create: () => Promise.reject(new ErrNotAuthorized()),
+      delete: () => Promise.reject(new ErrNotAuthorized()),
     },
   };
 

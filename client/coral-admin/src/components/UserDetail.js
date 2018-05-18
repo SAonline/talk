@@ -2,9 +2,8 @@ import React from 'react';
 import cn from 'classnames';
 import PropTypes from 'prop-types';
 import capitalize from 'lodash/capitalize';
-import { getErrorMessages } from 'coral-framework/utils';
 import styles from './UserDetail.css';
-import AccountHistory from './AccountHistory';
+import UserHistory from './UserHistory';
 import { Slot } from 'coral-framework/components';
 import UserDetailCommentList from '../components/UserDetailCommentList';
 import {
@@ -26,48 +25,9 @@ import {
 import ActionsMenu from 'coral-admin/src/components/ActionsMenu';
 import ActionsMenuItem from 'coral-admin/src/components/ActionsMenuItem';
 import UserInfoTooltip from './UserInfoTooltip';
+import t from 'coral-framework/services/i18n';
 
 class UserDetail extends React.Component {
-  rejectThenReload = async info => {
-    try {
-      await this.props.rejectComment(info);
-      this.props.data.refetch();
-    } catch (err) {
-      console.error(err);
-      this.props.notify('error', getErrorMessages(err));
-    }
-  };
-
-  acceptThenReload = async info => {
-    try {
-      await this.props.acceptComment(info);
-      this.props.data.refetch();
-    } catch (err) {
-      console.error(err);
-      this.props.notify('error', getErrorMessages(err));
-    }
-  };
-
-  bulkAcceptThenReload = async () => {
-    try {
-      await this.props.bulkAccept();
-      this.props.data.refetch();
-    } catch (err) {
-      console.error(err);
-      this.props.notify('error', getErrorMessages(err));
-    }
-  };
-
-  bulkRejectThenReload = async () => {
-    try {
-      await this.props.bulkReject();
-      this.props.data.refetch();
-    } catch (err) {
-      console.error(err);
-      this.props.notify('error', getErrorMessages(err));
-    }
-  };
-
   changeTab = tab => {
     this.props.changeTab(tab);
   };
@@ -94,6 +54,16 @@ class UserDetail extends React.Component {
     );
   }
 
+  renderError() {
+    return (
+      <ClickOutside onClickOutside={this.props.hideUserDetail}>
+        <Drawer onClose={this.props.hideUserDetail}>
+          <div>{this.props.data.error.message}</div>
+        </Drawer>
+      </ClickOutside>
+    );
+  }
+
   getActionMenuLabel() {
     const { root: { user } } = this.props;
 
@@ -108,7 +78,6 @@ class UserDetail extends React.Component {
 
   renderLoaded() {
     const {
-      data,
       root,
       root: { me, user, totalComments, rejectedComments },
       activeTab,
@@ -121,6 +90,10 @@ class UserDetail extends React.Component {
       unbanUser,
       unsuspendUser,
       modal,
+      acceptComment,
+      rejectComment,
+      bulkAccept,
+      bulkReject,
     } = this.props;
 
     // if totalComments is 0, you're dividing by zero
@@ -132,6 +105,11 @@ class UserDetail extends React.Component {
 
     const banned = isBanned(user);
     const suspended = isSuspended(user);
+
+    const slotPassthrough = {
+      root,
+      user,
+    };
 
     return (
       <ClickOutside onClickOutside={modal ? null : hideUserDetail}>
@@ -163,27 +141,27 @@ class UserDetail extends React.Component {
             >
               {suspended ? (
                 <ActionsMenuItem onClick={() => unsuspendUser({ id: user.id })}>
-                  Remove Suspension
+                  {t('user_detail.remove_suspension')}
                 </ActionsMenuItem>
               ) : (
                 <ActionsMenuItem
                   disabled={me.id === user.id}
                   onClick={this.showSuspenUserDialog}
                 >
-                  Suspend User
+                  {t('user_detail.suspend')}
                 </ActionsMenuItem>
               )}
 
               {banned ? (
                 <ActionsMenuItem onClick={() => unbanUser({ id: user.id })}>
-                  Remove Ban
+                  {t('user_detail.remove_ban')}
                 </ActionsMenuItem>
               ) : (
                 <ActionsMenuItem
                   disabled={me.id === user.id}
                   onClick={this.showBanUserDialog}
                 >
-                  Ban User
+                  {t('user_detail.ban')}
                 </ActionsMenuItem>
               )}
             </ActionsMenu>
@@ -201,14 +179,18 @@ class UserDetail extends React.Component {
             <ul className={styles.userDetailList}>
               <li>
                 <Icon name="assignment_ind" />
-                <span className={styles.userDetailItem}>Member Since:</span>
+                <span className={styles.userDetailItem}>
+                  {t('user_detail.member_since')}:
+                </span>
                 {new Date(user.created_at).toLocaleString()}
               </li>
 
               {user.profiles.map(({ id }) => (
                 <li key={id}>
                   <Icon name="email" />
-                  <span className={styles.userDetailItem}>Email:</span>
+                  <span className={styles.userDetailItem}>
+                    {t('user_detail.email')}:
+                  </span>
                   {id}{' '}
                   <ButtonCopyToClipboard
                     className={styles.copyButton}
@@ -221,17 +203,23 @@ class UserDetail extends React.Component {
 
             <ul className={styles.stats}>
               <li className={styles.stat}>
-                <span className={styles.statItem}>Total Comments</span>
+                <span className={styles.statItem}>
+                  {t('user_detail.total_comments')}
+                </span>
                 <span className={styles.statResult}>{totalComments}</span>
               </li>
               <li className={styles.stat}>
-                <span className={styles.statItem}>Reject Rate</span>
+                <span className={styles.statItem}>
+                  {t('user_detail.reject_rate')}
+                </span>
                 <span className={styles.statResult}>
                   {rejectedPercent.toFixed(1)}%
                 </span>
               </li>
               <li className={styles.stat}>
-                <span className={styles.statItem}>Reports</span>
+                <span className={styles.statItem}>
+                  {t('user_detail.reports')}
+                </span>
                 <span
                   className={cn(
                     styles.statReportResult,
@@ -244,11 +232,7 @@ class UserDetail extends React.Component {
             </ul>
           </div>
 
-          <Slot
-            fill="userProfile"
-            data={this.props.data}
-            queryData={{ root, user }}
-          />
+          <Slot fill="userProfile" passthrough={slotPassthrough} />
 
           <hr />
 
@@ -270,13 +254,13 @@ class UserDetail extends React.Component {
                 'talk-admin-user-detail-all-tab'
               )}
             >
-              All
+              {t('user_detail.all')}
             </Tab>
             <Tab
               tabId={'rejected'}
               className={cn(styles.tab, 'talk-admin-user-detail-rejected-tab')}
             >
-              Rejected
+              {t('user_detail.rejected')}
             </Tab>
             <Tab
               tabId={'history'}
@@ -286,7 +270,7 @@ class UserDetail extends React.Component {
                 'talk-admin-user-detail-history-tab'
               )}
             >
-              Account History
+              {t('user_detail.user_history')}
             </Tab>
           </TabBar>
 
@@ -301,16 +285,15 @@ class UserDetail extends React.Component {
               <UserDetailCommentList
                 user={user}
                 root={root}
-                data={data}
                 loadMore={loadMore}
                 toggleSelect={toggleSelect}
                 viewUserDetail={viewUserDetail}
-                acceptComment={this.acceptThenReload}
-                rejectComment={this.rejectThenReload}
+                acceptComment={acceptComment}
+                rejectComment={rejectComment}
                 selectedCommentIds={selectedCommentIds}
                 toggleSelectAll={toggleSelectAll}
-                bulkAcceptThenReload={this.bulkAcceptThenReload}
-                bulkRejectThenReload={this.bulkRejectThenReload}
+                bulkAcceptThenReload={bulkAccept}
+                bulkRejectThenReload={bulkReject}
               />
             </TabPane>
             <TabPane
@@ -320,23 +303,22 @@ class UserDetail extends React.Component {
               <UserDetailCommentList
                 user={user}
                 root={root}
-                data={data}
                 loadMore={loadMore}
                 toggleSelect={toggleSelect}
                 viewUserDetail={viewUserDetail}
-                acceptComment={this.acceptThenReload}
-                rejectComment={this.rejectThenReload}
+                acceptComment={acceptComment}
+                rejectComment={rejectComment}
                 selectedCommentIds={selectedCommentIds}
                 toggleSelectAll={toggleSelectAll}
-                bulkAcceptThenReload={this.bulkAcceptThenReload}
-                bulkRejectThenReload={this.bulkRejectThenReload}
+                bulkAcceptThenReload={bulkAccept}
+                bulkRejectThenReload={bulkReject}
               />
             </TabPane>
             <TabPane
               tabId={'history'}
               className={'talk-admin-user-detail-history-tab-pane'}
             >
-              <AccountHistory user={user} />
+              <UserHistory user={user} />
             </TabPane>
           </TabContent>
         </Drawer>
@@ -345,6 +327,10 @@ class UserDetail extends React.Component {
   }
 
   render() {
+    if (this.props.data.error) {
+      return this.renderError();
+    }
+
     if (this.props.loading) {
       return this.renderLoading();
     }
@@ -364,14 +350,11 @@ UserDetail.propTypes = {
   bulkReject: PropTypes.func.isRequired,
   toggleSelectAll: PropTypes.func.isRequired,
   loading: PropTypes.bool.isRequired,
-  data: PropTypes.shape({
-    refetch: PropTypes.func.isRequired,
-  }),
+  data: PropTypes.object,
   activeTab: PropTypes.string.isRequired,
   selectedCommentIds: PropTypes.array.isRequired,
   viewUserDetail: PropTypes.any.isRequired,
   loadMore: PropTypes.any.isRequired,
-  notify: PropTypes.func.isRequired,
   showSuspendUserDialog: PropTypes.func,
   showBanUserDialog: PropTypes.func,
   unbanUser: PropTypes.func.isRequired,

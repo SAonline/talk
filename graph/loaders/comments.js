@@ -4,7 +4,10 @@ const {
   SEARCH_NON_NULL_OR_ACCEPTED_COMMENTS,
   SEARCH_OTHERS_COMMENTS,
 } = require('../../perms/constants');
-const { CACHE_EXPIRY_COMMENT_COUNT } = require('../../config');
+const {
+  CACHE_EXPIRY_COMMENT_COUNT,
+  ALLOW_NO_LIMIT_QUERIES,
+} = require('../../config');
 const ms = require('ms');
 const sc = require('snake-case');
 
@@ -91,6 +94,7 @@ const getCommentCountByQuery = (ctx, options) => {
     author_id,
     tags,
     action_type,
+    excludeDeleted,
   } = options;
 
   // If user queries for statuses other than NONE and/or ACCEPTED statuses, it needs
@@ -115,6 +119,12 @@ const getCommentCountByQuery = (ctx, options) => {
 
   if (author_id) {
     query.merge({ author_id });
+  }
+
+  if (excludeDeleted) {
+    // The null query matches documents that either contain the `deleted_at`
+    // field whose value is null or that do not contain the `deleted_at` field.
+    query.merge({ deleted_at: null });
   }
 
   if (ctx.user != null && ctx.user.can(SEARCH_OTHERS_COMMENTS) && action_type) {
@@ -148,12 +158,11 @@ const getCommentCountByQuery = (ctx, options) => {
  * @param {Object} params the params from the client describing the query
  */
 const getStartCursor = (ctx, nodes, { cursor, sortBy }) => {
-  switch (sortBy) {
-    case 'CREATED_AT':
-      return nodes.length ? nodes[0].created_at : null;
-    case 'REPLIES':
-      // The cursor is the start! This is using numeric pagination.
-      return cursor != null ? cursor : 0;
+  if (sortBy === 'CREATED_AT') {
+    return nodes.length ? nodes[0].created_at : null;
+  } else if (sortBy === 'REPLIES') {
+    // The cursor is the start! This is using numeric pagination.
+    return cursor != null ? cursor : 0;
   }
 
   const SORT_KEY = sortBy.toLowerCase();
@@ -181,11 +190,10 @@ const getStartCursor = (ctx, nodes, { cursor, sortBy }) => {
  * @param {Object} params the params from the client describing the query
  */
 const getEndCursor = (ctx, nodes, { cursor, sortBy }) => {
-  switch (sortBy) {
-    case 'CREATED_AT':
-      return nodes.length ? nodes[nodes.length - 1].created_at : null;
-    case 'REPLIES':
-      return nodes.length ? (cursor != null ? cursor : 0) + nodes.length : null;
+  if (sortBy === 'CREATED_AT') {
+    return nodes.length ? nodes[nodes.length - 1].created_at : null;
+  } else if (sortBy === 'REPLIES') {
+    return nodes.length ? (cursor != null ? cursor : 0) + nodes.length : null;
   }
 
   const SORT_KEY = sortBy.toLowerCase();
@@ -212,36 +220,33 @@ const getEndCursor = (ctx, nodes, { cursor, sortBy }) => {
  * @param {Object} params the params from the client describing the query
  */
 const applySort = (ctx, query, { cursor, sortOrder, sortBy }) => {
-  switch (sortBy) {
-    case 'CREATED_AT': {
-      if (cursor) {
-        if (sortOrder === 'DESC') {
-          query = query.where({
-            created_at: {
-              $lt: cursor,
-            },
-          });
-        } else {
-          query = query.where({
-            created_at: {
-              $gt: cursor,
-            },
-          });
-        }
+  if (sortBy === 'CREATED_AT') {
+    if (cursor) {
+      if (sortOrder === 'DESC') {
+        query = query.where({
+          created_at: {
+            $lt: cursor,
+          },
+        });
+      } else {
+        query = query.where({
+          created_at: {
+            $gt: cursor,
+          },
+        });
       }
-
-      return query.sort({ created_at: sortOrder === 'DESC' ? -1 : 1 });
     }
-    case 'REPLIES': {
-      if (cursor) {
-        query = query.skip(cursor);
-      }
 
-      return query.sort({
-        reply_count: sortOrder === 'DESC' ? -1 : 1,
-        created_at: sortOrder === 'DESC' ? -1 : 1,
-      });
+    return query.sort({ created_at: sortOrder === 'DESC' ? -1 : 1 });
+  } else if (sortBy === 'REPLIES') {
+    if (cursor) {
+      query = query.skip(cursor);
     }
+
+    return query.sort({
+      reply_count: sortOrder === 'DESC' ? -1 : 1,
+      created_at: sortOrder === 'DESC' ? -1 : 1,
+    });
   }
 
   const SORT_KEY = sortBy.toLowerCase();
@@ -280,7 +285,7 @@ const executeWithSort = async (
   query = applySort(ctx, query, { cursor, sortOrder, sortBy });
 
   // Apply the limit (if it exists, as it's applied universally).
-  if (limit) {
+  if (limit >= 0) {
     query = query.limit(limit + 1);
   }
 
@@ -290,7 +295,7 @@ const executeWithSort = async (
   // The hasNextPage is always handled the same (ask for one more than we need,
   // if there is one more, than there is more).
   let hasNextPage = false;
-  if (limit && nodes.length > limit) {
+  if (limit >= 0 && nodes.length > limit) {
     // There was one more than we expected! Set hasNextPage = true and remove
     // the last item from the array that we requested.
     hasNextPage = true;
@@ -302,11 +307,9 @@ const executeWithSort = async (
   return {
     startCursor: getStartCursor(ctx, nodes, {
       cursor,
-      sortOrder,
       sortBy,
-      limit,
     }),
-    endCursor: getEndCursor(ctx, nodes, { cursor, sortOrder, sortBy, limit }),
+    endCursor: getEndCursor(ctx, nodes, { cursor, sortBy }),
     hasNextPage,
     nodes,
   };
@@ -332,11 +335,17 @@ const getCommentsByQuery = async (
     sortOrder,
     sortBy,
     excludeIgnored,
+    excludeDeleted,
     tags,
     action_type,
   }
 ) => {
-  let comments = CommentModel.find();
+  const query = CommentModel.find();
+
+  // Enforce that the limit must be gte 0 if this option is not true.
+  if (!ALLOW_NO_LIMIT_QUERIES && limit < 0) {
+    throw new Error('cannot query for limit < 0');
+  }
 
   // If user queries for statuses other than NONE and/or ACCEPTED statuses, it needs
   // special privileges.
@@ -349,11 +358,17 @@ const getCommentsByQuery = async (
   }
 
   if (statuses) {
-    comments = comments.where({ status: { $in: statuses } });
+    query.merge({ status: { $in: statuses } });
+  }
+
+  if (excludeDeleted) {
+    // The null query matches documents that either contain the `deleted_at`
+    // field whose value is null or that do not contain the `deleted_at` field.
+    query.merge({ deleted_at: null });
   }
 
   if (ctx.user != null && ctx.user.can(SEARCH_OTHERS_COMMENTS) && action_type) {
-    comments = comments.where({
+    query.merge({
       [`action_counts.${sc(action_type.toLowerCase())}`]: {
         $gt: 0,
       },
@@ -361,7 +376,7 @@ const getCommentsByQuery = async (
   }
 
   if (ids) {
-    comments = comments.find({
+    query.merge({
       id: {
         $in: ids,
       },
@@ -369,7 +384,7 @@ const getCommentsByQuery = async (
   }
 
   if (tags) {
-    comments = comments.find({
+    query.merge({
       'tags.tag.name': {
         $in: tags,
       },
@@ -382,17 +397,17 @@ const getCommentsByQuery = async (
     (ctx.user.can(SEARCH_OTHERS_COMMENTS) || ctx.user.id === author_id) &&
     author_id != null
   ) {
-    comments = comments.where({ author_id });
+    query.merge({ author_id });
   }
 
   if (asset_id) {
-    comments = comments.where({ asset_id });
+    query.merge({ asset_id });
   }
 
   // We perform the undefined check because, null, is a valid state for the
   // search to be with, which indicates that it is at depth 0.
   if (parent_id !== undefined) {
-    comments = comments.where({ parent_id });
+    query.merge({ parent_id });
   }
 
   if (
@@ -401,12 +416,12 @@ const getCommentsByQuery = async (
     ctx.user.ignoresUsers &&
     ctx.user.ignoresUsers.length > 0
   ) {
-    comments = comments.where({
+    query.merge({
       author_id: { $nin: ctx.user.ignoresUsers },
     });
   }
 
-  return executeWithSort(ctx, comments, { cursor, sortOrder, sortBy, limit });
+  return executeWithSort(ctx, query, { cursor, sortOrder, sortBy, limit });
 };
 
 /**

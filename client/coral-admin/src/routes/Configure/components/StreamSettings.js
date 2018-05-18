@@ -82,6 +82,20 @@ class StreamSettings extends React.Component {
     this.props.updatePending({ updater });
   };
 
+  updateDisableCommenting = () => {
+    const updater = {
+      disableCommenting: {
+        $set: !this.props.settings.disableCommenting,
+      },
+    };
+    this.props.updatePending({ updater });
+  };
+
+  updateDisableCommentingMessage = value => {
+    const updater = { disableCommentingMessage: { $set: value } };
+    this.props.updatePending({ updater });
+  };
+
   updateAutoClose = () => {
     const updater = {
       autoCloseStream: { $set: !this.props.settings.autoCloseStream },
@@ -107,7 +121,7 @@ class StreamSettings extends React.Component {
   };
 
   render() {
-    const { settings, data, root, errors, updatePending } = this.props;
+    const { settings, slotPassthrough, errors } = this.props;
 
     return (
       <ConfigurePage title={t('configure.stream_settings')}>
@@ -193,6 +207,25 @@ class StreamSettings extends React.Component {
           {t('configure.edit_comment_timeframe_text_post')}
         </ConfigureCard>
         <ConfigureCard
+          checked={settings.disableCommenting}
+          onCheckbox={this.updateDisableCommenting}
+          title={t('configure.disable_commenting_title')}
+        >
+          <p>{t('configure.disable_commenting_desc')}</p>
+          <div
+            className={cn(
+              styles.configSettingDisableCommenting,
+              settings.disableCommenting ? null : styles.hidden
+            )}
+          >
+            <MarkdownEditor
+              className={styles.descriptionBox}
+              onChange={this.updateDisableCommentingMessage}
+              value={settings.disableCommentingMessage}
+            />
+          </div>
+        </ConfigureCard>
+        <ConfigureCard
           checked={settings.autoCloseStream}
           onCheckbox={this.updateAutoClose}
           title={t('configure.close_after')}
@@ -220,13 +253,7 @@ class StreamSettings extends React.Component {
           </div>
         </ConfigureCard>
         {/* the above card should be the last one if at all possible because of z-index issues with the selects */}
-        <Slot
-          fill="adminStreamSettings"
-          data={data}
-          queryData={{ root, settings }}
-          updatePending={updatePending}
-          errors={errors}
-        />
+        <Slot fill="adminStreamSettings" passthrough={slotPassthrough} />
       </ConfigurePage>
     );
   }
@@ -235,9 +262,8 @@ class StreamSettings extends React.Component {
 StreamSettings.propTypes = {
   updatePending: PropTypes.func.isRequired,
   errors: PropTypes.object.isRequired,
-  data: PropTypes.object.isRequired,
-  root: PropTypes.object.isRequired,
   settings: PropTypes.object.isRequired,
+  slotPassthrough: PropTypes.object.isRequired,
 };
 
 export default StreamSettings;

@@ -19,7 +19,7 @@ class Moderation extends Component {
   componentWillMount() {
     const { toggleModal, singleView } = this.props;
 
-    key('s', () => singleView());
+    key('z', () => singleView());
     key('shift+/', () => toggleModal(true));
     key('esc', () => toggleModal(false));
     key('ctrl+f', () => this.openSearch());
@@ -61,10 +61,6 @@ class Moderation extends Component {
 
   openSearch = () => {
     this.props.toggleStorySearch(true);
-  };
-
-  getActiveTabCount = (props = this.props) => {
-    return props.root[`${props.activeTab}Count`];
   };
 
   moderate = accept => {
@@ -113,7 +109,7 @@ class Moderation extends Component {
   };
 
   componentWillUnmount() {
-    key.unbind('s');
+    key.unbind('z');
     key.unbind('shift+/');
     key.unbind('esc');
     key.unbind('ctrl+f');
@@ -126,7 +122,6 @@ class Moderation extends Component {
   render() {
     const {
       root,
-      data,
       moderation,
       viewUserDetail,
       activeTab,
@@ -140,13 +135,22 @@ class Moderation extends Component {
 
     const comments = root[activeTab];
 
-    const activeTabCount = this.getActiveTabCount();
     const menuItems = Object.keys(queueConfig).map(queue => ({
       key: queue,
       name: queueConfig[queue].name,
       icon: queueConfig[queue].icon,
-      count: root[`${queue}Count`],
+      indicator:
+        ['premod', 'reported'].includes(queue) && root[queue].nodes.length > 0,
+      // TODO: Eventually we'll reintroduce counting
+      // count: root[`${props.queue}Count`]
     }));
+
+    const slotPassthrough = {
+      root,
+      asset,
+      activeTab,
+      handleCommentChange,
+    };
 
     return (
       <div>
@@ -171,7 +175,6 @@ class Moderation extends Component {
           />
           <ModerationQueue
             key={`${activeTab}_${this.props.moderation.sortOrder}`}
-            data={this.props.data}
             root={this.props.root}
             currentAsset={asset}
             comments={comments.nodes}
@@ -184,8 +187,7 @@ class Moderation extends Component {
             loadMore={this.loadMore}
             commentBelongToQueue={this.props.commentBelongToQueue}
             isLoadingMore={this.state.isLoadingMore}
-            commentCount={activeTabCount}
-            currentUserId={this.props.auth.user.id}
+            currentUserId={this.props.currentUser.id}
             viewUserDetail={viewUserDetail}
             selectCommentId={props.selectCommentId}
             cleanUpQueue={props.cleanUpQueue}
@@ -204,13 +206,7 @@ class Moderation extends Component {
           closeSearch={this.closeSearch}
           storySearchChange={this.props.storySearchChange}
         />
-        <Slot
-          data={data}
-          queryData={{ root, asset }}
-          activeTab={activeTab}
-          handleCommentChange={handleCommentChange}
-          fill="adminModeration"
-        />
+        <Slot fill="adminModeration" passthrough={slotPassthrough} />
       </div>
     );
   }
@@ -225,7 +221,7 @@ Moderation.propTypes = {
   cleanUpQueue: PropTypes.func.isRequired,
   storySearchChange: PropTypes.func.isRequired,
   moderation: PropTypes.object.isRequired,
-  auth: PropTypes.object.isRequired,
+  currentUser: PropTypes.object.isRequired,
   queueConfig: PropTypes.object.isRequired,
   commentBelongToQueue: PropTypes.func.isRequired,
   handleCommentChange: PropTypes.func.isRequired,

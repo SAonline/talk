@@ -5,8 +5,9 @@ import Slot from 'coral-framework/components/Slot';
 import FlagLabel from 'coral-ui/components/FlagLabel';
 import cn from 'classnames';
 import styles from './CommentLabels.css';
+import { ADMIN, MODERATOR, STAFF } from 'coral-framework/constants/roles';
 
-const staffRoles = ['ADMIN', 'STAFF', 'MODERATOR'];
+const staffRoles = [ADMIN, MODERATOR, STAFF];
 
 function isUserFlagged(actions) {
   return actions.some(
@@ -42,6 +43,9 @@ const CommentLabels = ({
   comment,
   comment: { className, status, actions, hasParent },
 }) => {
+  const slotPassthrough = {
+    comment,
+  };
   return (
     <div className={cn(className, styles.root)}>
       <div className={styles.coreLabels}>
@@ -68,7 +72,7 @@ const CommentLabels = ({
       <Slot
         className={styles.slot}
         fill="adminCommentLabels"
-        queryData={{ comment }}
+        passthrough={slotPassthrough}
       />
     </div>
   );

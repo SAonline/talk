@@ -13,17 +13,17 @@ const RootMutation = {
   },
   editComment: async (
     _,
-    { id, asset_id, edit: { body } },
+    { id, asset_id, edit },
     { mutators: { Comment } }
   ) => ({
-    comment: await Comment.edit({ id, asset_id, edit: { body } }),
+    comment: await Comment.edit({ id, asset_id, edit }),
   }),
   createFlag: async (
     _,
     { flag: { item_id, item_type, reason, message } },
     { mutators: { Action } }
   ) => ({
-    flag: Action.create({
+    flag: await Action.create({
       item_id,
       item_type,
       action_type: 'FLAG',
@@ -132,6 +132,15 @@ const RootMutation = {
   }),
   revokeToken: async (_, { input }, { mutators: { Token } }) => {
     await Token.revoke(input);
+  },
+  forceScrapeAsset: async (_, { id }, { mutators: { Asset } }) => {
+    await Asset.scrape(id);
+  },
+  delUser: async (_, { id }, { mutators: { User } }) => {
+    await User.del(id);
+  },
+  changePassword: async (_, { input }, { mutators: { User } }) => {
+    await User.changePassword(input);
   },
 };
 

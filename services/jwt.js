@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const uniq = require('lodash/uniq');
+const { merge, uniq, omitBy, isUndefined } = require('lodash');
 
 /**
  * MultiSecret will take many secrets and provide a unified interface for
@@ -22,7 +22,10 @@ class MultiSecret {
    * Sign will sign with the first secret.
    */
   sign(payload, options) {
-    return this.secrets[0].sign(payload, options);
+    return this.secrets[0].sign(
+      omitBy(payload, isUndefined),
+      omitBy(options, isUndefined)
+    );
   }
 
   /**
@@ -78,10 +81,13 @@ class Secret {
     return jwt.sign(
       payload,
       this.signingKey,
-      Object.assign({}, options, {
-        keyid: this.kid,
-        algorithm: this.algorithm,
-      })
+      omitBy(
+        merge({}, options, {
+          keyid: this.kid,
+          algorithm: this.algorithm,
+        }),
+        isUndefined
+      )
     );
   }
 
@@ -95,9 +101,12 @@ class Secret {
     jwt.verify(
       token,
       this.verifiyingKey,
-      Object.assign({}, options, {
-        algorithms: [this.algorithm],
-      }),
+      omitBy(
+        merge({}, options, {
+          algorithms: [this.algorithm],
+        }),
+        isUndefined
+      ),
       callback
     );
   }

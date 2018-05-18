@@ -1,16 +1,12 @@
 import React from 'react';
 import { gql, compose } from 'react-apollo';
 import { withFragments, withMergedSettings } from 'coral-framework/hocs';
-import {
-  getErrorMessages,
-  getSlotFragmentSpreads,
-} from 'coral-framework/utils';
+import { getSlotFragmentSpreads } from 'coral-framework/utils';
 import Settings from '../components/Settings.js';
 import PropTypes from 'prop-types';
 import { withUpdateAssetSettings } from 'coral-framework/graphql/mutations';
 import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
-import { notify } from 'coral-framework/actions/notification';
 import { clearPending, updatePending } from '../../../actions/configure';
 
 const slots = ['streamSettings'];
@@ -50,32 +46,35 @@ class SettingsContainer extends React.Component {
   };
 
   savePending = async () => {
-    try {
-      await this.props.updateAssetSettings(
-        this.props.asset.id,
-        this.props.pending
-      );
-      this.props.clearPending();
-    } catch (err) {
-      this.props.notify('error', getErrorMessages(err));
-    }
+    await this.props.updateAssetSettings(
+      this.props.asset.id,
+      this.props.pending
+    );
+    this.props.clearPending();
   };
 
   render() {
     const {
       mergedSettings,
       canSave,
-      data,
       root,
       asset,
       errors,
       updatePending,
     } = this.props;
+
+    const slotPassthrough = {
+      root,
+      asset,
+      settings: mergedSettings,
+      updatePending,
+      errors,
+    };
+
     return (
       <Settings
         settings={mergedSettings}
-        queryData={{ root, asset, settings: mergedSettings }}
-        slotProps={{ data, updatePending, errors }}
+        slotPassthrough={slotPassthrough}
         savePending={this.savePending}
         onToggleModeration={this.toggleModeration}
         onTogglePremodLinks={this.togglePremodLinks}
@@ -90,7 +89,6 @@ class SettingsContainer extends React.Component {
 }
 
 SettingsContainer.propTypes = {
-  data: PropTypes.object.isRequired,
   root: PropTypes.object.isRequired,
   asset: PropTypes.object.isRequired,
   pending: PropTypes.object.isRequired,
@@ -98,7 +96,6 @@ SettingsContainer.propTypes = {
   mergedSettings: PropTypes.object.isRequired,
   updateAssetSettings: PropTypes.func.isRequired,
   clearPending: PropTypes.func.isRequired,
-  notify: PropTypes.func.isRequired,
   updatePending: PropTypes.func.isRequired,
   canSave: PropTypes.bool.isRequired,
 };
@@ -135,7 +132,6 @@ const mapStateToProps = state => ({
 const mapDispatchToProps = dispatch =>
   bindActionCreators(
     {
-      notify,
       clearPending,
       updatePending,
     },
@@ -143,9 +139,9 @@ const mapDispatchToProps = dispatch =>
   );
 
 const enhance = compose(
+  connect(mapStateToProps, mapDispatchToProps),
   withSettingsFragments,
   withUpdateAssetSettings,
-  connect(mapStateToProps, mapDispatchToProps),
   withMergedSettings('asset.settings', 'pending', 'mergedSettings')
 );
 

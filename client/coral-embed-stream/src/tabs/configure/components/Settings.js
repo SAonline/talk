@@ -25,9 +25,9 @@ class Settings extends React.Component {
       onQuestionBoxContentChange,
       canSave,
       onApply,
-      slotProps,
-      queryData,
+      slotPassthrough,
     } = this.props;
+
     return (
       <div className={styles.wrapper}>
         <div className={styles.container}>
@@ -57,7 +57,7 @@ class Settings extends React.Component {
           <Configuration
             checked={premodLinksEnable}
             title={t('configure.enable_premod_links')}
-            description={t('configure.enable_premod_description')}
+            description={t('configure.enable_premod_links_description')}
             onCheckbox={onTogglePremodLinks}
           />
           <Configuration
@@ -77,7 +77,7 @@ class Settings extends React.Component {
               </div>
             )}
           </Configuration>
-          <Slot fill="streamSettings" queryData={queryData} {...slotProps} />
+          <Slot fill="streamSettings" passthrough={slotPassthrough} />
         </div>
       </div>
     );
@@ -85,8 +85,7 @@ class Settings extends React.Component {
 }
 
 Settings.propTypes = {
-  queryData: PropTypes.object.isRequired,
-  slotProps: PropTypes.object.isRequired,
+  slotPassthrough: PropTypes.object.isRequired,
   settings: PropTypes.object.isRequired,
   canSave: PropTypes.bool.isRequired,
   onToggleModeration: PropTypes.func.isRequired,

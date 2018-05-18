@@ -5,6 +5,12 @@ import Comment from 'coral-admin/src/routes/Moderation/containers/Comment';
 import { getDefinitionName } from 'coral-framework/utils';
 import truncate from 'lodash/truncate';
 import t from 'coral-framework/services/i18n';
+import { subscriptionFields } from 'coral-admin/src/routes/Moderation/graphql';
+import {
+  compose,
+  withSubscribeToMore,
+  withVariables,
+} from 'plugin-api/beta/client/hocs';
 
 function prepareNotificationText(text) {
   return truncate(text, { length: 50 }).replace('\n', ' ');
@@ -18,7 +24,7 @@ class ModSubscription extends React.Component {
       {
         document: COMMENT_FEATURED_SUBSCRIPTION,
         variables: {
-          assetId: this.props.data.variables.asset_id,
+          assetId: this.props.variables.asset_id,
         },
         updateQuery: (
           prev,
@@ -38,7 +44,7 @@ class ModSubscription extends React.Component {
       {
         document: COMMENT_UNFEATURED_SUBSCRIPTION,
         variables: {
-          assetId: this.props.data.variables.asset_id,
+          assetId: this.props.variables.asset_id,
         },
         updateQuery: (
           prev,
@@ -61,7 +67,7 @@ class ModSubscription extends React.Component {
       },
     ];
     this.subscriptions = configs.map(config =>
-      this.props.data.subscribeToMore(config)
+      this.props.subscribeToMore(config)
     );
   }
 
@@ -79,14 +85,7 @@ const COMMENT_FEATURED_SUBSCRIPTION = gql`
     commentFeatured(asset_id: $assetId) {
       comment {
         ...${getDefinitionName(Comment.fragments.comment)}
-        status_history {
-          type
-          created_at
-          assigned_by {
-            id
-            username
-          }
-        }
+        ${subscriptionFields}
       }
       user {
         id
@@ -102,6 +101,7 @@ const COMMENT_UNFEATURED_SUBSCRIPTION = gql`
     commentUnfeatured(asset_id: $assetId){
       comment {
         ...${getDefinitionName(Comment.fragments.comment)}
+        ${subscriptionFields}
       }
       user {
         id
@@ -116,4 +116,8 @@ const mapStateToProps = state => ({
   user: state.auth.user,
 });
 
-export default connect(mapStateToProps, null)(ModSubscription);
+export default compose(
+  connect(mapStateToProps, null),
+  withVariables,
+  withSubscribeToMore
+)(ModSubscription);

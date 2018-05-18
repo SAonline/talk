@@ -20,20 +20,12 @@ function queueHasComment(root, queue, id) {
   return root[queue].nodes.find(c => c.id === id);
 }
 
-function removeCommentFromQueue(root, queue, id, dangling = false) {
-  if (!queueHasComment(root, queue, id)) {
-    return root;
-  }
+function removeCommentFromQueue(root, queue, id) {
   const changes = {
-    [`${queue}Count`]: { $set: root[`${queue}Count`] - 1 },
-  };
-
-  if (!dangling) {
-    changes[queue] = {
+    [queue]: {
       nodes: { $apply: nodes => nodes.filter(c => c.id !== id) },
-    };
-  }
-
+    },
+  };
   return update(root, changes);
 }
 
@@ -48,19 +40,21 @@ function shouldCommentBeAdded(root, queue, comment, sortOrder) {
     : new Date(comment.created_at) >= cursor;
 }
 
-function addCommentToQueue(root, queue, comment, sortOrder, cleanup) {
-  if (queueHasComment(root, queue, comment.id)) {
-    return root;
-  }
-
+function increaseCommentCount(root, queue) {
   const changes = {
     [`${queue}Count`]: { $set: root[`${queue}Count`] + 1 },
   };
+  return update(root, changes);
+}
 
-  if (!shouldCommentBeAdded(root, queue, comment, sortOrder)) {
-    return update(root, changes);
-  }
+function decreaseCommentCount(root, queue) {
+  const changes = {
+    [`${queue}Count`]: { $set: root[`${queue}Count`] - 1 },
+  };
+  return update(root, changes);
+}
 
+function addCommentToQueue(root, queue, comment, sortOrder) {
   const cursor = new Date(root[queue].startCursor);
   const date = new Date(comment.created_at);
 
@@ -70,17 +64,13 @@ function addCommentToQueue(root, queue, comment, sortOrder, cleanup) {
     ? root[queue].nodes.concat(comment)
     : [comment].concat(...root[queue].nodes);
 
-  changes[queue] = {
-    nodes: { $set: nodes },
+  const changes = {
+    [queue]: {
+      nodes: { $set: nodes },
+    },
   };
 
-  const next = update(root, changes);
-
-  if (!cleanup) {
-    return next;
-  }
-
-  return cleanUpQueue(next, queue, sortOrder);
+  return update(root, changes);
 }
 
 function sortComments(nodes, sortOrder) {
@@ -99,6 +89,87 @@ function getCommentQueues(comment, queueConfig) {
     }
   });
   return queues;
+}
+
+function getOlderDate(a, b) {
+  if (a) {
+    a = new Date(a);
+  }
+  if (b) {
+    b = new Date(b);
+  }
+
+  if (!b) {
+    return a;
+  }
+
+  if (!a) {
+    return b;
+  }
+  return a < b ? b : a;
+}
+
+function determineLatestChange(comment) {
+  let lc = null;
+
+  comment.body_history.forEach(item => {
+    lc = getOlderDate(lc, item.created_at);
+  });
+
+  comment.status_history.forEach(item => {
+    lc = getOlderDate(lc, item.created_at);
+  });
+
+  comment.actions.forEach(item => {
+    lc = getOlderDate(lc, item.created_at);
+  });
+
+  return lc;
+}
+
+function reconstructPreviousCommentState(comment) {
+  const statusHistory = comment.status_history;
+  const bodyHistory = comment.body_history;
+  const actions = comment.actions;
+  const lastChangeDate = determineLatestChange(comment);
+  const previousComment = {
+    ...comment,
+    body_history: bodyHistory.filter(
+      item => new Date(item.created_at) < lastChangeDate
+    ),
+    status_history: statusHistory.filter(
+      item => new Date(item.created_at) < lastChangeDate
+    ),
+    actions: actions.filter(item => new Date(item.created_at) < lastChangeDate),
+  };
+
+  // Comment did not exist previously.
+  if (!previousComment.status_history.length) {
+    return null;
+  }
+
+  previousComment.status =
+    previousComment.status_history[
+      previousComment.status_history.length - 1
+    ].type;
+
+  previousComment.body =
+    previousComment.body_history[previousComment.body_history.length - 1].body;
+
+  return previousComment;
+}
+
+/**
+ * getPreviousCommentQueues determines queues that this comment previously belonged to.
+ */
+function getPreviousCommentQueues(comment, queueConfig) {
+  const previousCommentState = reconstructPreviousCommentState(comment);
+
+  if (!previousCommentState) {
+    return [];
+  }
+
+  return getCommentQueues(previousCommentState, queueConfig);
 }
 
 /**
@@ -194,13 +265,13 @@ export function cleanUpQueue(root, queue, sortOrder, queueConfig) {
 
 /**
  * Assimilate comment changes into current store.
- * @param  {Object} root               current state of the store
- * @param  {Object} comment            comment that was changed
- * @param  {string} sortOrder          current sort order of the queues
- * @param  {string} notify             callback to show notification
- *                                     in the current active queue besides the 'all' queue.
- * @param  {Object} queueConfig        queue configuration
- * @return {Object}                    next state of the store
+ * @param  {Object}   root               current state of the store
+ * @param  {Object}   comment            comment that was changed
+ * @param  {string}   sortOrder          current sort order of the queues
+ * @param  {function} notify             callback to show notification
+ *                                       in the current active queue besides the 'all' queue.
+ * @param  {Object}   queueConfig        queue configuration
+ * @return {Object}                      next state of the store
  */
 export function handleCommentChange(
   root,
@@ -212,6 +283,10 @@ export function handleCommentChange(
 ) {
   let next = root;
 
+  // Queues that this comment previously belonged to.
+  const prevQueues = getPreviousCommentQueues(comment, queueConfig);
+
+  // Queues that this comment needs to be placed.
   const nextQueues = getCommentQueues(comment, queueConfig);
 
   let notificationShown = false;
@@ -224,15 +299,26 @@ export function handleCommentChange(
   };
 
   Object.keys(queueConfig).forEach(queue => {
+    // Comment should be placed in queue.
     if (nextQueues.indexOf(queue) >= 0) {
+      // Comment was not previously in this queue.
+      if (prevQueues.indexOf(queue) === -1) {
+        // Increase count.
+        next = increaseCommentCount(next, queue);
+      }
+
       if (!queueHasComment(next, queue, comment.id)) {
-        next = addCommentToQueue(
-          next,
-          queue,
-          comment,
-          sortOrder,
-          activeQueue !== queue
-        );
+        // Check if comment would be in the current view.
+        if (shouldCommentBeAdded(root, queue, comment, sortOrder)) {
+          next = addCommentToQueue(next, queue, comment, sortOrder);
+
+          // This will limit queue sizes.
+          if (activeQueue !== queue) {
+            cleanUpQueue(next, queue, sortOrder);
+          }
+        }
+
+        // Show notification if end of list is visible.
         if (
           notify &&
           activeQueue === queue &&
@@ -241,17 +327,30 @@ export function handleCommentChange(
           showNotificationOnce();
         }
       }
-    } else if (queueHasComment(next, queue, comment.id)) {
+    } else if (prevQueues.indexOf(queue) >= 0) {
+      // Comment previously was in this queue, but not anymore.
+
+      // If action was performed by another user, keep a dangling comment.
       const dangling =
         activeQueue === queue &&
         comment.status_history[comment.status_history.length - 1].assigned_by
           .id !== root.me.id;
-      next = removeCommentFromQueue(next, queue, comment.id, dangling);
-      if (notify && isVisible(comment.id)) {
-        showNotificationOnce();
+
+      // Otherwise remove it
+      if (!dangling) {
+        next = removeCommentFromQueue(next, queue, comment.id);
       }
+
+      // In any case decrease comment count.
+      next = decreaseCommentCount(next, queue);
+    } else if (queueHasComment(next, queue, comment.id)) {
+      // Comment does not belong to his queue and did not belong to this queue previously.
+      // Must be a dangling comment that the current user took action on.
+      // Remove it completely from the queue.
+      next = removeCommentFromQueue(next, queue, comment.id);
     }
 
+    // Show notification if operation affected a currently visible comment.
     if (notify && isVisible(comment.id)) {
       showNotificationOnce();
     }
@@ -263,3 +362,55 @@ export function handleCommentChange(
   });
   return next;
 }
+
+const indicatorQueues = ['premod', 'reported'];
+
+/**
+ * Track indicator status
+ * @param  {Object}   root     current state of the store
+ * @param  {Object}   comment  comment that was changed
+ * @return {Object}            next state of the store
+ */
+export function handleIndicatorChange(root, comment, queueConfig) {
+  let next = root;
+
+  // Queues that this comment previously belonged to.
+  const prevQueues = getPreviousCommentQueues(comment, queueConfig);
+
+  // Queues that this comment needs to be placed.
+  const nextQueues = getCommentQueues(comment, queueConfig);
+
+  for (const queue of indicatorQueues) {
+    if (prevQueues.indexOf(queue) === -1 && nextQueues.indexOf(queue) >= 0) {
+      next = increaseCommentCount(next, queue);
+    }
+    if (prevQueues.indexOf(queue) >= 0 && nextQueues.indexOf(queue) === -1) {
+      next = decreaseCommentCount(next, queue);
+    }
+  }
+
+  return next;
+}
+
+export const subscriptionFields = `
+  status
+  body
+  body_history {
+    body
+    created_at
+  }
+  actions {
+    __typename
+    created_at
+  }
+  status_history {
+    type
+    assigned_by {
+      id
+      username
+    }
+    created_at
+  }
+  updated_at
+  created_at
+`;

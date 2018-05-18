@@ -9,24 +9,13 @@ import AutomaticAssetClosure from '../containers/AutomaticAssetClosure';
 
 import ExtendableTabPanel from '../containers/ExtendableTabPanel';
 import { Tab, TabPane } from 'coral-ui';
-import ProfileContainer from 'coral-settings/containers/ProfileContainer';
+import Profile from '../tabs/profile/containers/Profile';
 import Popup from 'coral-framework/components/Popup';
 import IfSlotIsNotEmpty from 'coral-framework/components/IfSlotIsNotEmpty';
 import cn from 'classnames';
 
 export default class Embed extends React.Component {
-  changeTab = tab => {
-    // TODO: move data fetching to appropiate containers.
-    switch (tab) {
-      case 'profile':
-        this.props.data.refetch();
-        break;
-    }
-    this.props.setActiveTab(tab);
-  };
-
   getTabs() {
-    const { user } = this.props.auth;
     const tabs = [
       <Tab
         key="stream"
@@ -35,15 +24,21 @@ export default class Embed extends React.Component {
       >
         {t('embed_comments_tab')}
       </Tab>,
-      <Tab
-        key="profile"
-        tabId="profile"
-        className="talk-embed-stream-profile-tab"
-      >
-        {t('framework.my_profile')}
-      </Tab>,
     ];
-    if (can(user, 'UPDATE_CONFIG')) {
+
+    if (this.props.currentUser) {
+      tabs.push(
+        <Tab
+          key="profile"
+          tabId="profile"
+          className="talk-embed-stream-profile-tab"
+        >
+          {t('framework.my_profile')}
+        </Tab>
+      );
+    }
+
+    if (can(this.props.currentUser, 'UPDATE_ASSET_CONFIG')) {
       tabs.push(
         <Tab
           key="config"
@@ -54,23 +49,28 @@ export default class Embed extends React.Component {
         </Tab>
       );
     }
+
     return tabs;
   }
 
   render() {
     const {
       activeTab,
+      setActiveTab,
       commentId,
       root,
       root: { asset },
       data,
-      auth: { showSignInDialog, signInDialogFocus },
+      showSignInDialog,
+      signInDialogFocus,
       blurSignInDialog,
       focusSignInDialog,
       hideSignInDialog,
-      router: { location: { query: { parentUrl } } },
+      parentUrl,
     } = this.props;
     const hasHighlightedComment = !!commentId;
+    const popupUrl = `login?parentUrl=${encodeURIComponent(parentUrl)}`;
+    const slotPassthrough = { root };
 
     return (
       <div
@@ -81,9 +81,7 @@ export default class Embed extends React.Component {
         <AutomaticAssetClosure asset={asset} />
         <IfSlotIsNotEmpty slot="login">
           <Popup
-            href={`embed/stream/login?parentUrl=${encodeURIComponent(
-              parentUrl
-            )}`}
+            href={popupUrl}
             title="Login"
             features="menubar=0,resizable=0,width=500,height=550,top=200,left=500"
             open={showSignInDialog}
@@ -94,18 +92,17 @@ export default class Embed extends React.Component {
           />
         </IfSlotIsNotEmpty>
 
-        <Slot data={data} queryData={{ root }} fill="embed" />
+        <Slot passthrough={slotPassthrough} fill="embed" />
 
         <ExtendableTabPanel
           className="talk-embed-stream-tab-bar"
           activeTab={activeTab}
-          setActiveTab={this.changeTab}
+          setActiveTab={setActiveTab}
           fallbackTab="stream"
           tabSlot="embedStreamTabs"
           tabSlotPrepend="embedStreamTabsPrepend"
           tabPaneSlot="embedStreamTabPanes"
-          slotProps={{ data }}
-          queryData={{ root }}
+          slotPassthrough={slotPassthrough}
           tabs={this.getTabs()}
           tabPanes={[
             <TabPane
@@ -120,7 +117,7 @@ export default class Embed extends React.Component {
               tabId="profile"
               className="talk-embed-stream-profile-tab-pane"
             >
-              <ProfileContainer />
+              <Profile />
             </TabPane>,
             <TabPane
               key="config"
@@ -138,17 +135,15 @@ export default class Embed extends React.Component {
 
 Embed.propTypes = {
   setActiveTab: PropTypes.func,
-  auth: PropTypes.object,
+  currentUser: PropTypes.object,
+  showSignInDialog: PropTypes.bool,
+  signInDialogFocus: PropTypes.bool,
   blurSignInDialog: PropTypes.func,
   focusSignInDialog: PropTypes.func,
   hideSignInDialog: PropTypes.func,
-  router: PropTypes.object,
+  parentUrl: PropTypes.string,
   commentId: PropTypes.string,
   root: PropTypes.object,
   activeTab: PropTypes.string,
-  data: PropTypes.shape({
-    loading: PropTypes.bool,
-    error: PropTypes.object,
-    refetch: PropTypes.func,
-  }).isRequired,
+  data: PropTypes.object.isRequired,
 };

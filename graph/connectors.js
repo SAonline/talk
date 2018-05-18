@@ -1,8 +1,25 @@
 const debug = require('debug')('talk:graph:connectors');
 const merge = require('lodash/merge');
 
+// Config.
+const config = require('../config');
+
+// Secrets.
+const secrets = require('../secrets');
+
 // Errors.
 const errors = require('../errors');
+
+// URLs.
+const url = require('../url');
+
+// Graph.
+const { getBroker } = require('./subscriptions/broker');
+const { getPubsub } = require('./subscriptions/pubsub');
+const resolvers = require('./resolvers');
+const mutators = require('./mutators');
+const loaders = require('./loaders');
+const schema = require('./schema');
 
 // Models.
 const Action = require('../models/action');
@@ -24,10 +41,10 @@ const Limit = require('../services/limit');
 const Mailer = require('../services/mailer');
 const Metadata = require('../services/metadata');
 const Migration = require('../services/migration');
+const Moderation = require('../services/moderation');
 const Mongoose = require('../services/mongoose');
 const Passport = require('../services/passport');
 const Plugins = require('../services/plugins');
-const Pubsub = require('../services/pubsub');
 const Redis = require('../services/redis');
 const Regex = require('../services/regex');
 const Scraper = require('../services/scraper');
@@ -39,9 +56,12 @@ const Tokens = require('../services/tokens');
 const Users = require('../services/users');
 const Wordlist = require('../services/wordlist');
 
-// Connector.
-const connectors = {
+// Connectors.
+const defaultConnectors = {
   errors,
+  config,
+  secrets,
+  url,
   models: {
     Action,
     Asset,
@@ -62,10 +82,10 @@ const connectors = {
     Mailer,
     Metadata,
     Migration,
+    Moderation,
     Mongoose,
     Passport,
     Plugins,
-    Pubsub,
     Redis,
     Regex,
     Scraper,
@@ -77,14 +97,23 @@ const connectors = {
     Users,
     Wordlist,
   },
+  graph: {
+    subscriptions: { getBroker, getPubsub },
+    resolvers,
+    mutators,
+    loaders,
+    schema,
+  },
 };
 
-module.exports = Plugins.get('server', 'connectors').reduce(
+const connectors = Plugins.get('server', 'connectors').reduce(
   (defaultConnectors, { plugin, connectors: pluginConnectors }) => {
     debug(`adding plugin '${plugin.name}'`);
 
     // Merge in the plugin connectors.
     return merge(defaultConnectors, pluginConnectors);
   },
-  connectors
+  defaultConnectors
 );
+
+module.exports = connectors;

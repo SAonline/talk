@@ -3,7 +3,6 @@ import PropTypes from 'prop-types';
 import LoadMore from './LoadMore';
 import NewCount from './NewCount';
 import { TransitionGroup } from 'react-transition-group';
-import { forEachError } from 'coral-framework/utils';
 import Comment from '../containers/Comment';
 import NoComments from './NoComments';
 
@@ -91,11 +90,8 @@ class AllCommentsPane extends React.Component {
       .then(() => {
         this.setState({ loadingState: 'success' });
       })
-      .catch(error => {
+      .catch(() => {
         this.setState({ loadingState: 'error' });
-        forEachError(error, ({ msg }) => {
-          this.props.notify('error', msg);
-        });
       });
   };
 
@@ -130,7 +126,6 @@ class AllCommentsPane extends React.Component {
 
   render() {
     const {
-      data,
       root,
       comments,
       commentClassNames,
@@ -168,7 +163,6 @@ class AllCommentsPane extends React.Component {
                 return (
                   <Comment
                     commentClassNames={commentClassNames}
-                    data={data}
                     root={root}
                     disableReply={disableReply}
                     setActiveReplyBox={setActiveReplyBox}
@@ -209,7 +203,6 @@ class AllCommentsPane extends React.Component {
 }
 
 AllCommentsPane.propTypes = {
-  data: PropTypes.object,
   root: PropTypes.object,
   comments: PropTypes.object,
   commentClassNames: PropTypes.array,
@@ -221,7 +214,7 @@ AllCommentsPane.propTypes = {
   asset: PropTypes.object,
   currentUser: PropTypes.object,
   postFlag: PropTypes.func,
-  postDontAgree: PropTypes.func,
+  postDontAgree: PropTypes.func.isRequired,
   loadNewReplies: PropTypes.func,
   deleteAction: PropTypes.func,
   showSignInDialog: PropTypes.func,

@@ -1,10 +1,12 @@
 const CommentModel = require('../models/comment');
 const AssetModel = require('../models/asset');
-const SettingsService = require('./settings');
+const Settings = require('./settings');
 const DomainList = require('./domain_list');
-const errors = require('../errors');
-const merge = require('lodash/merge');
-const isEmpty = require('lodash/isEmpty');
+const {
+  ErrAssetURLAlreadyExists,
+  ErrNotFound,
+  ErrInvalidAssetURL,
+} = require('../errors');
 const { dotize } = require('./utils');
 
 module.exports = class AssetsService {
@@ -25,28 +27,6 @@ module.exports = class AssetsService {
   }
 
   /**
-   * Retrieves the settings given an asset query and rectifies it against the
-   * global settings.
-   * @param  {Promise} assetQuery an asset query that returns a single asset.
-   * @return {Promise}
-   */
-  static async rectifySettings(assetQuery, settings = null) {
-    const [globalSettings, asset] = await Promise.all([
-      settings !== null ? settings : SettingsService.retrieve(),
-      assetQuery,
-    ]);
-
-    // If the asset exists and has settings then return the merged object.
-    if (asset && asset.settings && !isEmpty(asset.settings)) {
-      settings = merge({}, globalSettings, asset.settings);
-    } else {
-      settings = globalSettings;
-    }
-
-    return settings;
-  }
-
-  /**
    * Finds a asset by its url.
    *
    * NOTE: This function has scalability concerns regarding mongoose's decision
@@ -62,18 +42,18 @@ module.exports = class AssetsService {
     // Check the URL to confirm that is in the domain whitelist
     return Promise.all([
       DomainList.urlCheck(url),
-      SettingsService.retrieve(),
-    ]).then(([whitelisted, settings]) => {
+      Settings.select('autoCloseStream', 'closedTimeout'),
+    ]).then(([whitelisted, { autoCloseStream, closedTimeout }]) => {
       const update = { $setOnInsert: { url } };
 
-      if (settings.autoCloseStream) {
+      if (autoCloseStream) {
         update.$setOnInsert.closedAt = new Date(
-          Date.now() + settings.closedTimeout * 1000
+          Date.now() + closedTimeout * 1000
         );
       }
 
       if (!whitelisted) {
-        return Promise.reject(errors.ErrInvalidAssetURL);
+        throw new ErrInvalidAssetURL(url);
       } else {
         return AssetModel.findOneAndUpdate({ url }, update, {
           // Ensure that if it's new, we return the new object created.
@@ -136,10 +116,10 @@ module.exports = class AssetsService {
    * @return {Promise}
    */
   static search({ value, limit, open, sortOrder, cursor } = {}) {
-    let assets = AssetModel.find({});
+    let query = AssetModel.find({});
 
     if (value && value.length > 0) {
-      assets.merge({
+      query.merge({
         $text: {
           $search: value,
         },
@@ -148,7 +128,7 @@ module.exports = class AssetsService {
 
     if (open != null) {
       if (open) {
-        assets.merge({
+        query.merge({
           $or: [
             {
               closedAt: null,
@@ -161,7 +141,7 @@ module.exports = class AssetsService {
           ],
         });
       } else {
-        assets.merge({
+        query.merge({
           closedAt: {
             $lt: Date.now(),
           },
@@ -171,13 +151,13 @@ module.exports = class AssetsService {
 
     if (cursor) {
       if (sortOrder === 'DESC') {
-        assets.merge({
+        query.merge({
           created_at: {
             $lt: cursor,
           },
         });
       } else {
-        assets.merge({
+        query.merge({
           created_at: {
             $gt: cursor,
           },
@@ -185,7 +165,7 @@ module.exports = class AssetsService {
       }
     }
 
-    return assets
+    return query
       .sort({ created_at: sortOrder === 'DESC' ? -1 : 1 })
       .limit(limit);
   }
@@ -211,7 +191,7 @@ module.exports = class AssetsService {
     // Try to see if an asset already exists with the given url.
     let asset = await AssetsService.findByUrl(url);
     if (asset !== null) {
-      throw errors.ErrAssetURLAlreadyExists;
+      throw new ErrAssetURLAlreadyExists();
     }
 
     // Seems that there was no other asset with the same url, try and perform
@@ -227,7 +207,7 @@ module.exports = class AssetsService {
       dstAssetID,
     ]);
     if (!srcAsset || !dstAsset) {
-      throw errors.ErrNotFound;
+      throw new ErrNotFound();
     }
 
     // Resolve the merge operation, this invloves moving all resources attached
@@ -252,11 +232,5 @@ module.exports = class AssetsService {
     await AssetModel.remove({
       id: srcAssetID,
     });
-
-    // That's it!
-  }
-
-  static all(limit = undefined) {
-    return AssetModel.find({}).limit(limit);
   }
 };

@@ -9,18 +9,13 @@ import withFragments from 'coral-framework/hocs/withFragments';
 import withMutation from 'coral-framework/hocs/withMutation';
 import { notify } from 'coral-framework/actions/notification';
 import { capitalize } from 'coral-framework/helpers/strings';
-import {
-  getMyActionSummary,
-  getTotalActionCount,
-  getErrorMessages,
-} from 'coral-framework/utils';
+import { getMyActionSummary, getTotalActionCount } from 'coral-framework/utils';
 import hoistStatics from 'recompose/hoistStatics';
 import * as PropTypes from 'prop-types';
 import { getDefinitionName } from '../utils';
 import { t, can } from 'plugin-api/beta/client/services';
 
-// TODO: Auth logic needs refactoring.
-import { showSignInDialog } from 'coral-embed-stream/src/actions/auth';
+import { showSignInDialog } from 'coral-embed-stream/src/actions/login';
 
 /*
  * Disable false-positive warning below, as it doesn't work well with how we currently
@@ -282,7 +277,6 @@ export default (reaction, options = {}) =>
           })
           .catch(err => {
             this.duringMutation = false;
-            this.props.notify('error', getErrorMessages(err));
             throw err;
           });
       };
@@ -307,7 +301,6 @@ export default (reaction, options = {}) =>
           })
           .catch(err => {
             this.duringMutation = false;
-            this.props.notify('error', getErrorMessages(err));
             throw err;
           });
       };

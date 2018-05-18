@@ -56,6 +56,7 @@
   width: 100%;
   border-left: none;
   border-right: none;
+  white-space: pre-wrap;
 
   a {
     color: rgb(44, 44, 44);
@@ -88,3 +89,12 @@
     display: inline-block;
   }
 }
+
+.statusDropdown {
+  width: 150px;
+}
+
+.statusDropdownOption {
+  min-width: 100px;
+}
+

@@ -1,3 +1,4 @@
+import { getStaticConfiguration } from 'coral-framework/services/staticConfiguration';
 import { createStore } from './store';
 import { createClient, apolloErrorReporter } from './client';
 import pym from './pym';
@@ -13,6 +14,7 @@ import { createPluginsService } from './plugins';
 import { createNotificationService } from './notification';
 import { createGraphQLRegistry } from './graphqlRegistry';
 import { createGraphQLService } from './graphql';
+import { createPostMessage } from './postMessage';
 import globalFragments from 'coral-framework/graphql/fragments';
 import {
   createStorage,
@@ -21,27 +23,14 @@ import {
 import { createHistory } from 'coral-framework/services/history';
 import { createIntrospection } from 'coral-framework/services/introspection';
 import introspectionData from 'coral-framework/graphql/introspection.json';
-
-/**
- * getStaticConfiguration will return a singleton of the static configuration
- * object provided via a JSON DOM element.
- */
-const getStaticConfiguration = (() => {
-  let staticConfiguration = null;
-  return () => {
-    if (staticConfiguration != null) {
-      return staticConfiguration;
-    }
-
-    const configElement = document.querySelector('#data');
-
-    staticConfiguration = JSON.parse(
-      configElement ? configElement.textContent : '{}'
-    );
-
-    return staticConfiguration;
-  };
-})();
+import coreReducers from '../reducers';
+import { checkLogin as checkLoginAction } from '../actions/auth';
+import {
+  mergeConfig,
+  enablePluginsDebug,
+  disablePluginsDebug,
+} from '../actions/config';
+import { setAuthToken, logout } from '../actions/auth';
 
 /**
  * getAuthToken returns the active auth token or null
@@ -52,16 +41,54 @@ const getStaticConfiguration = (() => {
 const getAuthToken = (store, storage) => {
   let state = store.getState();
 
-  if (state.config.auth_token) {
+  if (state.config && state.config.auth_token) {
     // if an auth_token exists in config, use it.
     return state.config.auth_token;
   } else if (!bowser.safari && !bowser.ios && storage) {
     // Use local storage auth tokens where there's a stable api.
     return storage.getItem('token');
+  } else if (state.auth && state.auth.token) {
+    // Use the redux token state if the remaining methods fall out. If the embed
+    // is called with `embed.login(token)`, and the browser is not capable of
+    // storing the token in localStorage, then we would have persisted it to the
+    // redux state.
+    return state.auth.token;
   }
 
   return null;
 };
+
+function areWeInIframe() {
+  try {
+    return window.self !== window.top;
+  } catch (e) {
+    return true;
+  }
+}
+
+function initExternalConfig({ store, pym, inIframe }) {
+  if (!inIframe) {
+    return;
+  }
+  return new Promise(resolve => {
+    pym.sendMessage('getConfig');
+    pym.onMessage('config', rawConfig => {
+      const config = JSON.parse(rawConfig);
+      if (config.plugin_config) {
+        // @Deprecated
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn(
+            'Deprecation Warning: `config.plugin_config` will be phased out soon, please replace `config.plugin_config  with `config.plugins_config`'
+          );
+        }
+        config.plugins_config = config.plugin_config;
+        delete config.plugin_config;
+      }
+      store.dispatch(mergeConfig(config));
+      resolve();
+    });
+  });
+}
 
 /**
  * createContext setups and returns Talk dependencies that should be
@@ -82,10 +109,19 @@ export async function createContext({
   notification,
   preInit,
   init = noop,
+  checkLogin = true,
+  addExternalConfig = true,
 } = {}) {
+  const inIframe = areWeInIframe();
   const eventEmitter = new EventEmitter({ wildcard: true });
-  const storage = createStorage();
-  const pymStorage = createPymStorage(pym);
+  const localStorage = createStorage('localStorage');
+  const sessionStorage = createStorage('sessionStorage');
+  const pymLocalStorage = inIframe
+    ? createPymStorage(pym, 'localStorage')
+    : localStorage;
+  const pymSessionStorage = inIframe
+    ? createPymStorage(pym, 'sessionStorage')
+    : sessionStorage;
   const history = createHistory(BASE_PATH);
   const introspection = createIntrospection(introspectionData);
   let store = null;
@@ -93,9 +129,9 @@ export async function createContext({
     // Try to get the token from localStorage. If it isn't here, it may
     // be passed as a cookie.
 
-    // NOTE: THIS IS ONLY EVER EVALUATED ONCE, IN ORDER TO SEND A DIFFERNT
+    // NOTE: THIS IS ONLY EVER EVALUATED ONCE, IN ORDER TO SEND A DIFFERENT
     // TOKEN YOU MUST DISCONNECT AND RECONNECT THE WEBSOCKET CLIENT.
-    return getAuthToken(store, storage);
+    return getAuthToken(store, localStorage);
   };
 
   const rest = createRestClient({
@@ -103,9 +139,8 @@ export async function createContext({
     token,
   });
 
-  // Try to get an overrided liveUri from the static config, if none is found,
-  // build it.
-  let { LIVE_URI: liveUri } = getStaticConfiguration();
+  const staticConfig = getStaticConfiguration();
+  let { LIVE_URI: liveUri, STATIC_ORIGIN: origin } = staticConfig;
   if (liveUri == null) {
     // The protocol must match the origin protocol, secure/insecure.
     const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -114,6 +149,8 @@ export async function createContext({
     // with the live path appended to it.
     liveUri = `${protocol}://${location.host}${BASE_PATH}api/v1/live`;
   }
+
+  const postMessage = createPostMessage(origin);
 
   const client = createClient({
     uri: `${BASE_PATH}api/v1/graph/ql`,
@@ -138,10 +175,14 @@ export async function createContext({
     rest,
     graphql,
     notification,
-    storage,
+    localStorage,
+    sessionStorage,
     history,
     introspection,
-    pymStorage,
+    pymLocalStorage,
+    pymSessionStorage,
+    inIframe,
+    postMessage,
   };
 
   // Load framework fragments.
@@ -165,6 +206,7 @@ export async function createContext({
 
   // Create our redux store.
   const finalReducers = {
+    ...coreReducers,
     ...reducers,
     ...plugins.getReducers(),
   };
@@ -184,9 +226,47 @@ export async function createContext({
     [client.middleware(), apolloErrorReporter, createReduxEmitter(eventEmitter)]
   );
 
-  // Run pre initialization.
+  if (inIframe) {
+    pym.onMessage('login', token => {
+      if (token) {
+        store.dispatch(setAuthToken(token));
+      }
+    });
+
+    pym.onMessage('logout', () => {
+      store.dispatch(logout());
+    });
+
+    pym.onMessage('enablePluginsDebug', () => {
+      store.dispatch(enablePluginsDebug());
+    });
+
+    pym.onMessage('disablePluginsDebug', () => {
+      store.dispatch(disablePluginsDebug());
+    });
+  }
+
+  const preInitList = [];
+
+  store.dispatch(
+    mergeConfig({
+      static: staticConfig,
+    })
+  );
+
   if (preInit) {
-    await preInit(context);
+    preInitList.push(preInit(context));
+  }
+
+  if (addExternalConfig) {
+    preInitList.push(initExternalConfig(context));
+  }
+
+  // Run pre initialization.
+  await Promise.all(preInitList);
+
+  if (checkLogin) {
+    store.dispatch(checkLoginAction());
   }
 
   // Run initialization.

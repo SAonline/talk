@@ -2,9 +2,13 @@ import React from 'react';
 import { bindActionCreators } from 'redux';
 import { compose, gql } from 'react-apollo';
 import TabPane from '../components/TabPane';
-import { withFragments, connect } from 'plugin-api/beta/client/hocs';
+import {
+  withFragments,
+  connect,
+  withFetchMore,
+  withVariables,
+} from 'plugin-api/beta/client/hocs';
 import Comment from '../containers/Comment';
-import { notify } from 'plugin-api/beta/client/actions/notification';
 import { viewComment } from 'coral-embed-stream/src/actions/stream';
 import {
   appendNewNodes,
@@ -14,15 +18,15 @@ import update from 'immutability-helper';
 
 class TabPaneContainer extends React.Component {
   loadMore = () => {
-    return this.props.data.fetchMore({
+    return this.props.fetchMore({
       query: LOAD_MORE_QUERY,
       variables: {
         limit: 5,
         cursor: this.props.asset.featuredComments.endCursor,
         asset_id: this.props.asset.id,
-        sortOrder: this.props.data.variables.sortOrder,
-        sortBy: this.props.data.variables.sortBy,
-        excludeIgnored: this.props.data.variables.excludeIgnored,
+        sortOrder: this.props.variables.sortOrder,
+        sortBy: this.props.variables.sortBy,
+        excludeIgnored: this.props.variables.excludeIgnored,
       },
       updateQuery: (previous, { fetchMoreResult: { comments } }) => {
         const updated = update(previous, {
@@ -81,13 +85,14 @@ const mapDispatchToProps = dispatch =>
   bindActionCreators(
     {
       viewComment,
-      notify,
     },
     dispatch
   );
 
 const enhance = compose(
   connect(null, mapDispatchToProps),
+  withFetchMore,
+  withVariables,
   withFragments({
     root: gql`
       fragment TalkFeaturedComments_TabPane_root on RootQuery {

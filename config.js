@@ -44,6 +44,25 @@ const CONFIG = {
   // fetching again.
   SETTINGS_CACHE_TIME: ms(process.env.TALK_SETTINGS_CACHE_TIME || '1hr'),
 
+  // ALLOW_NO_LIMIT_QUERIES enables some queries to specify a limit of -1 to
+  // request all of the records. Otherwise, minimum limits of 0 are enforced.
+  ALLOW_NO_LIMIT_QUERIES: process.env.TALK_ALLOW_NO_LIMIT_QUERIES === 'TRUE',
+
+  // LOGGING_LEVEL specifies the logging level used by the bunyan logger.
+  LOGGING_LEVEL: ['fatal', 'error', 'warn', 'info', 'debug', 'trace'].includes(
+    process.env.TALK_LOGGING_LEVEL
+  )
+    ? process.env.TALK_LOGGING_LEVEL
+    : process.env.NODE_ENV === 'test' ? 'fatal' : 'info',
+
+  // REVISION_HASH when using the docker build will contain the build hash that
+  // it was built at.
+  REVISION_HASH: process.env.REVISION_HASH,
+
+  // SCRAPER_HEADERS is a JSON string that will be used to override the headers
+  // on the scraper when it makes requests.
+  SCRAPER_HEADERS: process.env.TALK_SCRAPER_HEADERS || '{}',
+
   //------------------------------------------------------------------------------
   // JWT based configuration
   //------------------------------------------------------------------------------
@@ -192,6 +211,13 @@ const CONFIG = {
   RECAPTCHA_ENABLED: false, // updated below
   RECAPTCHA_PUBLIC: process.env.TALK_RECAPTCHA_PUBLIC,
   RECAPTCHA_SECRET: process.env.TALK_RECAPTCHA_SECRET,
+
+  // RECAPTCHA_WINDOW is the rate limit's time interval
+  RECAPTCHA_WINDOW: process.env.TALK_RECAPTCHA_WINDOW || '10m',
+
+  // After RECAPTCHA_INCORRECT_TRIGGER incorrect attempts, recaptcha will be required.
+  RECAPTCHA_INCORRECT_TRIGGER:
+    process.env.TALK_RECAPTCHA_INCORRECT_TRIGGER || 5,
 
   // WEBSOCKET_LIVE_URI is the absolute url to the live endpoint.
   WEBSOCKET_LIVE_URI: process.env.TALK_WEBSOCKET_LIVE_URI || null,

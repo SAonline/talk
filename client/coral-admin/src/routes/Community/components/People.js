@@ -10,6 +10,12 @@ import ActionsMenu from 'coral-admin/src/components/ActionsMenu';
 import ActionsMenuItem from 'coral-admin/src/components/ActionsMenuItem';
 import { isSuspended, isBanned } from 'coral-framework/utils/user';
 import moment from 'moment';
+import {
+  ADMIN,
+  COMMENTER,
+  MODERATOR,
+  STAFF,
+} from 'coral-framework/constants/roles';
 
 const headers = [
   {
@@ -194,25 +200,32 @@ class People extends React.Component {
                         </td>
                         <td className="mdl-data-table__cell--non-numeric">
                           <Dropdown
-                            containerClassName="talk-admin-community-people-dd-role"
+                            className={cn(
+                              'talk-admin-community-people-dd-role',
+                              styles.roleDropdown
+                            )}
                             value={user.role}
                             placeholder={t('community.role')}
                             onChange={role => setUserRole(user.id, role)}
                           >
                             <Option
-                              value={'COMMENTER'}
+                              className={styles.roleOption}
+                              value={COMMENTER}
                               label={t('community.commenter')}
                             />
                             <Option
-                              value={'STAFF'}
+                              className={styles.roleOption}
+                              value={STAFF}
                               label={t('community.staff')}
                             />
                             <Option
-                              value={'MODERATOR'}
+                              className={styles.roleOption}
+                              value={MODERATOR}
                               label={t('community.moderator')}
                             />
                             <Option
-                              value={'ADMIN'}
+                              className={styles.roleOption}
+                              value={ADMIN}
                               label={t('community.admin')}
                             />
                           </Dropdown>
