@@ -6,7 +6,6 @@
     "talk-plugin-respect",
     "talk-plugin-toxic-comments",
     "talk-plugin-profile-data",
-    "talk-plugin-local-auth"
   ],
   "client": [
     "talk-plugin-author-menu",
@@ -24,7 +23,6 @@
     "talk-plugin-sort-oldest",
     "talk-plugin-viewing-options",
     "talk-plugin-toxic-comments",
-    "talk-plugin-profile-data",
-    "talk-plugin-local-auth"
+    "talk-plugin-profile-data"
   ]
 }
