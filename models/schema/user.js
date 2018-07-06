@@ -235,6 +235,15 @@ User.index({
   created_at: -1,
 });
 
+User.index(
+  {
+    'metadata.displayName': 1,
+  },
+  {
+    sparse: true,
+  }
+);
+
 // This query is executed often, to count the number of flagged accounts with
 // usernames.
 User.index({
@@ -339,6 +348,11 @@ User.virtual('banned')
   })
   .set(function(status) {
     this.status.banned.status = status;
+
+    if (!this.status.banned.history) {
+      this.status.banned.history = [];
+    }
+
     this.status.banned.history.push({
       status,
       created_at: new Date(),
@@ -357,6 +371,11 @@ User.virtual('suspended')
   })
   .set(function(until) {
     this.status.suspension.until = until;
+
+    if (!this.status.suspension.history) {
+      this.status.suspension.history = [];
+    }
+
     this.status.suspension.history.push({
       until,
       created_at: new Date(),
