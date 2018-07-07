@@ -703,6 +703,9 @@ enum FLAG_REASON {
   # The current user thinks that the flagged comment is wrong for another
   # reason.
   COMMENT_OTHER
+
+  # The current user thinks that the flagged comment uses inappropriate language
+  COMMENT_INAPPROPRIATE_LANGUAGE
 }
 
 # A FLAG action that contains flag metadata.

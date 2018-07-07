@@ -12,9 +12,7 @@ const getPopupMenu = [
   () => {
     return {
       header: t('step_1_header'),
-      options: [
-        { val: 'COMMENTS', text: t('flag_comment') },
-      ],
+      options: [{ val: 'COMMENTS', text: t('flag_comment') }],
       button: t('continue'),
       sets: 'itemType',
     };
@@ -23,9 +21,12 @@ const getPopupMenu = [
     const options =
       itemType === 'COMMENTS'
         ? [
-            { val: comment.offensive, text: t('comment_offensive') },
+            { val: comment.offensive, text: t('comment_abusive') },
+            {
+              val: comment.inappropriate_language,
+              text: t('comment_language_inappropriate'),
+            },
             { val: comment.spam, text: t('marketing') },
-            { val: comment.noagree, text: t('no_agree_comment') },
             { val: comment.other, text: t('other') },
           ]
         : [

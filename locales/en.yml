@@ -42,6 +42,8 @@ en:
     info: 'A history of your comments will appear here'
     title: 'You have not written any comments'
   comment_offensive: 'This comment is offensive'
+  comment_abusive: 'This comment is abusive'
+  comment_language_inappropriate: 'Language is inappropriate'
   comment_plural: Comments
   comment_post_banned_word: 'Your comment contains one or more words that are not permitted, so it will not be published. If you think this message is incorrect, please contact our moderation team.'
   comment_post_notif: 'Your comment has been posted.'
@@ -284,6 +286,7 @@ en:
         body_count: 'Body exceeds max length'
         comment_noagree: Disagree
         comment_offensive: Offensive
+        comment_inappropriate_language: Inappropriate Language
         comment_other: Other
         comment_spam: Spam
         links: Link
