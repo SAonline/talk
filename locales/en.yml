@@ -8,7 +8,7 @@ en:
     ban_user: 'Ban User?'
     banned_user: 'Banned User'
     cancel: Cancel
-    email_message_ban: "Dear {0},\n\nSomeone with access to your account has violated our community guidelines. As a result, your account has been banned. You will no longer be able to comment, like or report comments. if you think this has been done in error, please contact our community team."
+    email_message_ban: "Dear {0},\n\nIn accordance with Honolulu Star-Advertiser’s community guidelines, your commenting access has been blocked. Termination of the your commenting access is due to repeated violations of our community guidelines. You will no longer be able to comment, like or report comments. If you think this has been done in error, please contact our community team."
     note: 'Note: {0}'
     note_ban_user: 'Banning this user will not let them comment, react to, or report comments.'
     note_reject_comment: 'Banning this user will also place this comment in the Rejected queue.'
@@ -201,7 +201,7 @@ en:
   email:
     banned:
       body: 'In accordance with The Coral Project’s community guidelines, your account has been banned. You are now longer allowed to comment, flag or engage with our community.'
-      subject: 'Your account has been banned'
+      subject: 'Notice of commenting access termination'
     confirm:
       confirm_email: 'Confirm Email'
       has_been_requested: 'A email confirmation has been requested for the following account:'
@@ -217,7 +217,7 @@ en:
       subject: 'Password reset'
       we_received_a_request: 'We received a request to reset your password. If you did not request this change, you can ignore this email.'
     suspended:
-      subject: 'Your account has been suspended'
+      subject: 'Notice of commenting access suspension'
   embed_comments_tab: Comments
   embedlink:
     copy: 'Copy to Clipboard'
@@ -498,7 +498,7 @@ en:
     days: '{0} days'
     description_notify: 'Suspending this user will temporarily disable their account.'
     description_suspend: 'You are suspending {0}. This comment will go to the Rejected queue, and {0} will not be allowed to like, report, reply or post until the suspension time is complete.'
-    email_message_suspend: "Dear {0},\n\nIn accordance with {1}’s community guidelines, your account has been temporarily suspended. During the suspension, you will be unable to comment, flag or engage with fellow commenters. Please rejoin the conversation {2}."
+    email_message_suspend: "Dear {0},\n\nIn accordance with {1}’s community guidelines, your commenting access has been temporarily suspended. During the suspension, you will be unable to comment, flag or engage with fellow commenters. Please rejoin the conversation {2}."
     hour: '{0} hours'
     hours: '{0} hours'
     notify_suspend_until: 'User {0} has been temporarily suspended. This suspension will automatically end {1}.'
