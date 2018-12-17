@@ -136,7 +136,7 @@ class Users {
         locals: {
           body: message,
         },
-        subject: 'Your account has been suspended', // TODO: replace with translation
+        subject: 'Notice of commenting access suspension', // TODO: replace with translation
       });
     }
 
@@ -189,7 +189,7 @@ class Users {
         locals: {
           body: message,
         },
-        subject: 'Your account has been banned',
+        subject: 'Notice of commenting access termination',
       });
     }
 
