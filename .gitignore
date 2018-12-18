@@ -17,6 +17,8 @@ docs/source/_data/introspection.json
 .prettierrc.json
 .vscode
 
+.DS_Store
+
 coverage/
 test/e2e/reports/
 test/e2e/bslocal.log
