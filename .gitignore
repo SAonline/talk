@@ -17,8 +17,6 @@ docs/source/_data/introspection.json
 .prettierrc.json
 .vscode
 
-.DS_Store
-
 coverage/
 test/e2e/reports/
 test/e2e/bslocal.log
@@ -76,3 +74,5 @@ plugins/*
 
 **/node_modules/*
 yarn-error.log
+
+.DS_Store
