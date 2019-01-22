@@ -8,7 +8,7 @@ en:
     ban_user: 'Ban User?'
     banned_user: 'Banned User'
     cancel: Cancel
-    email_message_ban: "Dear {0},\n\nIn accordance with Honolulu Star-Advertiser’s community guidelines, your commenting access has been blocked. Termination of the your commenting access is due to repeated violations of our community guidelines. You will no longer be able to comment, like or report comments. If you think this has been done in error, please contact our community team."
+    email_message_ban: "Dear {0},\n\nIn accordance with Honolulu Star-Advertiser’s community guidelines, your commenting access has been blocked. Termination of your commenting access is due to repeated violations of our community guidelines. You will no longer be able to comment, like or report comments. If you think this has been done in error, please contact our community team."
     note: 'Note: {0}'
     note_ban_user: 'Banning this user will not let them comment, react to, or report comments.'
     note_reject_comment: 'Banning this user will also place this comment in the Rejected queue.'
